@@ -1,3 +1,7 @@
+// Side-effect import — starts OTel (if OTEL_ENABLED) before anything else loads,
+// so instrumentation patches http/fastify/prisma at module-load time.
+import { stopTelemetry } from './telemetry.js';
+
 import { buildApp } from './app.js';
 import { logger } from './core/utils/logger.js';
 
@@ -51,6 +55,7 @@ const shutdown = async (signal: string) => {
 
   try {
     await app.close();
+    await stopTelemetry();
     logger.info('Server closed cleanly');
     process.exit(0);
   } catch (err) {

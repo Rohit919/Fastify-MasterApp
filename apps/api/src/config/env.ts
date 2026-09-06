@@ -39,6 +39,11 @@ export const envSchema = Type.Object({
   // Swagger — disabled by default; must be explicitly enabled (avoids exposing the schema in prod)
   SWAGGER_ENABLED: Type.Boolean({ default: false }),
   SWAGGER_PATH: Type.String({ default: '/documentation' }),
+
+  // Tracing — opt-in. When enabled, spans are exported to the OTLP endpoint.
+  OTEL_ENABLED: Type.Boolean({ default: false }),
+  OTEL_EXPORTER_OTLP_ENDPOINT: Type.String({ default: 'http://localhost:4318/v1/traces' }),
+  OTEL_SERVICE_NAME: Type.String({ default: 'fastify-api' }),
 });
 
 export type Env = Static<typeof envSchema>;

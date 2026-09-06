@@ -39,6 +39,9 @@ export const TEST_ENV: Env = {
   METRICS_PATH: '/metrics',
   SWAGGER_ENABLED: false,
   SWAGGER_PATH: '/documentation',
+  OTEL_ENABLED: false,
+  OTEL_EXPORTER_OTLP_ENDPOINT: 'http://localhost:4318/v1/traces',
+  OTEL_SERVICE_NAME: 'fastify-api-test',
 };
 
 // ─── mock Prisma type ─────────────────────────────────────────────────────────

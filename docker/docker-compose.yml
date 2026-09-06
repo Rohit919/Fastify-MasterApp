@@ -17,6 +17,16 @@ services:
       timeout: 5s
       retries: 5
 
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    container_name: fastify_jaeger
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    ports:
+      - "16686:16686"   # Jaeger UI
+      - "4318:4318"     # OTLP HTTP receiver
+    restart: unless-stopped
+
   prometheus:
     image: prom/prometheus:latest
     container_name: fastify_prometheus
@@ -25,6 +35,7 @@ services:
       - '--storage.tsdb.path=/prometheus'
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml
       - prometheus_data:/prometheus
     ports:
       - "9090:9090"
