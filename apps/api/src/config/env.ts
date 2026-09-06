@@ -10,8 +10,11 @@ export const envSchema = Type.Object({
   HOST: Type.String({ default: '0.0.0.0' }),
   LOG_LEVEL: Type.String({ default: 'info' }),
 
-  // Database
+  // Database — DATABASE_URL is the app connection (through PgBouncer in prod).
+  // DATABASE_DIRECT_URL bypasses the pooler for migrations (Prisma needs a
+  // direct session). Optional: falls back to DATABASE_URL when unset.
   DATABASE_URL: Type.String(),
+  DATABASE_DIRECT_URL: Type.Optional(Type.String()),
 
   // Redis (distributed rate limiting, queues)
   REDIS_URL: Type.String({ default: 'redis://localhost:6379' }),

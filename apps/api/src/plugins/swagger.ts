@@ -24,6 +24,7 @@ const swaggerPlugin: FastifyPluginAsync = async (fastify) => {
       // Define tags here only if you want to control order or add descriptions
       tags: [
         { name: 'Meta', description: 'API index and metadata' },
+        { name: 'Admin', description: 'Admin-only diagnostics' },
         { name: 'Health', description: 'Health check endpoints' },
         { name: 'Auth', description: 'Authentication endpoints' },
         { name: 'Users', description: 'User management endpoints' },
