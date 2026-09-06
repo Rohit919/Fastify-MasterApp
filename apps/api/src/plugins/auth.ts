@@ -19,11 +19,23 @@ declare module '@fastify/jwt' {
 }
 
 const authPlugin: FastifyPluginAsync = async (fastify) => {
-  // Register JWT plugin
+  // Fail fast on a weak secret — belt-and-suspenders alongside the env schema minLength.
+  if (fastify.config.JWT_SECRET.length < 32) {
+    throw new Error(
+      `JWT_SECRET is too short (${fastify.config.JWT_SECRET.length} chars). ` +
+        'Minimum is 32. Generate one with: openssl rand -hex 32'
+    );
+  }
+
+  // Register JWT plugin — pin HS256 on both sign and verify to block the alg:none attack.
   await fastify.register(fastifyJWT, {
     secret: fastify.config.JWT_SECRET,
     sign: {
+      algorithm: 'HS256',
       expiresIn: fastify.config.JWT_EXPIRES_IN,
+    },
+    verify: {
+      algorithms: ['HS256'],
     },
   });
 

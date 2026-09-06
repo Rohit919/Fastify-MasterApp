@@ -51,13 +51,14 @@ export type MockPrisma = {
 };
 
 export function buildMockPrisma(overrides: Partial<MockPrisma> = {}): MockPrisma {
-  return {
+  const defaults: Record<string, unknown> = {
     $connect: async () => {},
     $disconnect: async () => {},
     $queryRaw: async () => [{ '?column?': 1 }],
     user: {
       findUnique: async () => null,
       create: async () => null,
+      update: async () => null,
     },
     todo: {
       findMany: async () => [],
@@ -73,8 +74,21 @@ export function buildMockPrisma(overrides: Partial<MockPrisma> = {}): MockPrisma
       update: async () => null,
       updateMany: async () => ({ count: 0 }),
     },
-    ...overrides,
-  } as unknown as MockPrisma;
+  };
+
+  // Deep-merge per-model: a test overriding `user.findUnique` still keeps the
+  // default `user.update`, so handlers that touch multiple methods don't 500.
+  const merged: Record<string, unknown> = { ...defaults };
+  for (const [key, value] of Object.entries(overrides)) {
+    const base = defaults[key];
+    if (base && typeof base === 'object' && typeof value === 'object' && value !== null) {
+      merged[key] = { ...(base as object), ...(value as object) };
+    } else {
+      merged[key] = value;
+    }
+  }
+
+  return merged as unknown as MockPrisma;
 }
 
 // ─── app builder ─────────────────────────────────────────────────────────────

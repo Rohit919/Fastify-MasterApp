@@ -43,13 +43,42 @@ export async function buildApp() {
 
   const helmetPlugin = await import('@fastify/helmet');
   await app.register(helmetPlugin.default, {
-    contentSecurityPolicy: false,
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"], // Swagger UI needs inline scripts
+        styleSrc: ["'self'", "'unsafe-inline'"], // Swagger UI needs inline styles
+        imgSrc: ["'self'", 'data:', 'https:'],
+        connectSrc: ["'self'"],
+        fontSrc: ["'self'", 'https:'],
+        objectSrc: ["'none'"],
+        upgradeInsecureRequests: [],
+      },
+      // Report-only in non-production so a bad directive doesn't break local dev.
+      reportOnly: process.env.NODE_ENV !== 'production',
+    },
+    crossOriginEmbedderPolicy: false, // Swagger UI assets
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+    hsts: {
+      maxAge: 31_536_000, // 1 year
+      includeSubDomains: true,
+      preload: true,
+    },
   });
 
   const rateLimitPlugin = await import('@fastify/rate-limit');
   await app.register(rateLimitPlugin.default, {
     max: app.config.RATE_LIMIT_MAX,
     timeWindow: app.config.RATE_LIMIT_TIME_WINDOW,
+    // Don't count health/readiness/metrics against the global limit.
+    allowList: (req) => {
+      const base = `${app.config.API_PREFIX}/${app.config.API_VERSION}`;
+      return (
+        req.url === `${base}/health` ||
+        req.url === `${base}/ready` ||
+        req.url === app.config.METRICS_PATH
+      );
+    },
   });
 
   // ── Global hooks (user context in logs, etc.) ───────────────────────────────

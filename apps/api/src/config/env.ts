@@ -14,7 +14,7 @@ export const envSchema = Type.Object({
   DATABASE_URL: Type.String(),
 
   // Authentication
-  JWT_SECRET: Type.String(),
+  JWT_SECRET: Type.String({ minLength: 32 }),
   JWT_EXPIRES_IN: Type.String({ default: '15m' }),
   REFRESH_TOKEN_EXPIRES_IN: Type.String({ default: '7d' }),
 
@@ -33,9 +33,11 @@ export const envSchema = Type.Object({
   // Monitoring
   METRICS_ENABLED: Type.Boolean({ default: true }),
   METRICS_PATH: Type.String({ default: '/metrics' }),
+  // Optional bearer token to protect the /metrics endpoint. If unset, /metrics is open (dev).
+  METRICS_TOKEN: Type.Optional(Type.String({ minLength: 20 })),
 
-  // Swagger
-  SWAGGER_ENABLED: Type.Boolean({ default: true }),
+  // Swagger — disabled by default; must be explicitly enabled (avoids exposing the schema in prod)
+  SWAGGER_ENABLED: Type.Boolean({ default: false }),
   SWAGGER_PATH: Type.String({ default: '/documentation' }),
 });
 

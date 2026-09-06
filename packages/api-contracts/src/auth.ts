@@ -6,14 +6,14 @@ import { Type, type Static } from '@sinclair/typebox';
 
 // ── Requests ──────────────────────────────────────────────────────────────────
 export const LoginBody = Type.Object({
-  email: Type.String({ format: 'email' }),
-  password: Type.String({ minLength: 6 }),
+  email: Type.String({ format: 'email', maxLength: 254 }),
+  password: Type.String({ minLength: 8, maxLength: 128 }),
 });
 export type LoginBody = Static<typeof LoginBody>;
 
 export const RegisterBody = Type.Object({
   email: Type.String({ format: 'email', maxLength: 254 }),
-  password: Type.String({ minLength: 6, maxLength: 128 }),
+  password: Type.String({ minLength: 8, maxLength: 128 }),
   name: Type.String({ minLength: 1, maxLength: 100 }),
 });
 export type RegisterBody = Static<typeof RegisterBody>;

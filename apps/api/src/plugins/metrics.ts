@@ -77,9 +77,17 @@ const metricsPlugin: FastifyPluginAsync = async (fastify, _options) => {
     httpRequestsInProgress.labels({ method: request.method }).dec();
   });
 
-  // Add metrics endpoint
+  // Add metrics endpoint — optionally gated behind a bearer token.
   if (fastify.config.METRICS_ENABLED) {
-    fastify.get(fastify.config.METRICS_PATH, async (_request, reply) => {
+    const metricsToken = fastify.config.METRICS_TOKEN;
+    fastify.get(fastify.config.METRICS_PATH, async (request, reply) => {
+      if (metricsToken) {
+        const header = request.headers.authorization;
+        const provided = header?.startsWith('Bearer ') ? header.slice(7) : null;
+        if (provided !== metricsToken) {
+          return reply.status(401).send({ error: 'Unauthorized' });
+        }
+      }
       const metrics = await register.metrics();
       return reply.type(register.contentType).send(metrics);
     });

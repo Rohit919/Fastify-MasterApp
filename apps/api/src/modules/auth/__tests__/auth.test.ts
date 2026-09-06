@@ -409,3 +409,134 @@ describe('GET /api/v1/auth/verify', () => {
     await app.close();
   });
 });
+
+// ─── Phase 1 — Account lockout (REQ-006) ────────────────────────────────────
+
+describe('POST /api/v1/auth/login — account lockout', () => {
+  it('returns 429 when the account is already locked', async () => {
+    const lockedUser = {
+      ...MOCK_USER,
+      failedLoginAttempts: 5,
+      lockedUntil: new Date(Date.now() + 10 * 60 * 1000), // locked 10 min out
+    };
+
+    const app = await buildTestApp({
+      prisma: {
+        user: {
+          findUnique: vi.fn().mockResolvedValue(lockedUser),
+          update: vi.fn(),
+        },
+      },
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `${BASE_URL}/login`,
+      payload: { email: 'test@example.com', password: 'password123' },
+    });
+
+    expect(res.statusCode).toBe(429);
+    const body = res.json();
+    expect(body.error.retryAfter).toBeGreaterThan(0);
+
+    await app.close();
+  });
+
+  it('increments failed attempts and locks after the 5th failure', async () => {
+    const userAtFour = { ...MOCK_USER, failedLoginAttempts: 4, lockedUntil: null };
+    const updateMock = vi.fn().mockResolvedValue(userAtFour);
+
+    const app = await buildTestApp({
+      prisma: {
+        user: {
+          findUnique: vi.fn().mockResolvedValue(userAtFour),
+          update: updateMock,
+        },
+      },
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `${BASE_URL}/login`,
+      payload: { email: 'test@example.com', password: 'wrongpassword' },
+    });
+
+    expect(res.statusCode).toBe(401);
+    // 5th failure → update must set lockedUntil
+    const updateArg = updateMock.mock.calls[0]?.[0];
+    expect(updateArg.data.failedLoginAttempts).toBe(5);
+    expect(updateArg.data.lockedUntil).toBeInstanceOf(Date);
+
+    await app.close();
+  });
+
+  it('resets counters on successful login', async () => {
+    const updateMock = vi.fn().mockResolvedValue(MOCK_USER);
+
+    const app = await buildTestApp({
+      prisma: {
+        user: {
+          findUnique: vi.fn().mockResolvedValue({ ...MOCK_USER, failedLoginAttempts: 3 }),
+          update: updateMock,
+        },
+        refreshToken: { create: vi.fn().mockResolvedValue({ id: 'rt' }) },
+      },
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `${BASE_URL}/login`,
+      payload: { email: 'test@example.com', password: 'password123' },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const updateArg = updateMock.mock.calls[0]?.[0];
+    expect(updateArg.data.failedLoginAttempts).toBe(0);
+    expect(updateArg.data.lockedUntil).toBeNull();
+
+    await app.close();
+  });
+});
+
+// ─── Phase 1 — Refresh token family detection (REQ-010) ─────────────────────
+
+describe('POST /api/v1/auth/refresh — family reuse detection', () => {
+  it('revokes the entire family when a revoked token is reused', async () => {
+    const revokedToken = {
+      id: 'rt-old',
+      token: 'reused-token',
+      family: 'fam-123',
+      userId: MOCK_USER.id,
+      expiresAt: new Date(Date.now() + 86_400_000),
+      revokedAt: new Date(Date.now() - 1000), // already revoked
+      createdAt: new Date(),
+      user: MOCK_USER,
+    };
+    const updateManyMock = vi.fn().mockResolvedValue({ count: 3 });
+
+    const app = await buildTestApp({
+      prisma: {
+        refreshToken: {
+          findUnique: vi.fn().mockResolvedValue(revokedToken),
+          update: vi.fn(),
+          create: vi.fn(),
+          updateMany: updateManyMock,
+        },
+      },
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `${BASE_URL}/refresh`,
+      payload: { refreshToken: 'reused-token' },
+    });
+
+    expect(res.statusCode).toBe(401);
+    // The whole family must have been revoked
+    expect(updateManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ family: 'fam-123' }) })
+    );
+
+    await app.close();
+  });
+});

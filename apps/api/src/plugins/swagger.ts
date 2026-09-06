@@ -4,6 +4,12 @@ import fastifySwaggerUI from '@fastify/swagger-ui';
 import type { FastifyPluginAsync } from 'fastify';
 
 const swaggerPlugin: FastifyPluginAsync = async (fastify) => {
+  if (fastify.config.SWAGGER_ENABLED && fastify.config.NODE_ENV === 'production') {
+    fastify.log.warn(
+      'SWAGGER_ENABLED=true in production — this exposes your full API schema. Disable unless intentional.'
+    );
+  }
+
   // Register Swagger
   await fastify.register(fastifySwagger, {
     openapi: {
