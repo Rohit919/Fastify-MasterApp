@@ -57,13 +57,14 @@ const metricsPlugin: FastifyPluginAsync = async (fastify, _options) => {
     // Track in-progress requests
     httpRequestsInProgress.labels({ method: request.method }).inc();
 
-    // Start timer for request duration
-    request.startTime = Date.now();
+    // Nanosecond-resolution start time (accurate for sub-millisecond responses)
+    request.startHrTime = process.hrtime.bigint();
   });
 
   fastify.addHook('onResponse', async (request, reply) => {
-    // Calculate request duration
-    const duration = Date.now() - (request.startTime || Date.now());
+    // Convert nanoseconds → seconds (Prometheus convention)
+    const start = request.startHrTime ?? process.hrtime.bigint();
+    const durationSeconds = Number(process.hrtime.bigint() - start) / 1e9;
     const route = request.routeOptions?.config?.url || request.url;
     const labels = {
       method: request.method,
@@ -72,7 +73,7 @@ const metricsPlugin: FastifyPluginAsync = async (fastify, _options) => {
     };
 
     // Record metrics
-    httpRequestDuration.labels(labels).observe(duration / 1000);
+    httpRequestDuration.labels(labels).observe(durationSeconds);
     httpRequestsTotal.labels(labels).inc();
     httpRequestsInProgress.labels({ method: request.method }).dec();
   });
@@ -97,7 +98,7 @@ const metricsPlugin: FastifyPluginAsync = async (fastify, _options) => {
 // Extend request type
 declare module 'fastify' {
   interface FastifyRequest {
-    startTime?: number;
+    startHrTime?: bigint;
   }
 }
 

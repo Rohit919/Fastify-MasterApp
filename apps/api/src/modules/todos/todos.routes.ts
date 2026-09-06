@@ -28,11 +28,14 @@ const todoRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const result = await todoService.createTodo({
-        title: request.body.title,
-        description: request.body.description,
-        userId: request.user.id,
-      });
+      const result = await todoService.createTodo(
+        {
+          title: request.body.title,
+          description: request.body.description,
+          userId: request.user.id,
+        },
+        request.log as unknown as import('pino').Logger
+      );
 
       if (!result.success) {
         // Not declared in the response schema on purpose — declaring a 400 schema

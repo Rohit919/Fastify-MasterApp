@@ -1,4 +1,5 @@
 import type { PrismaClient } from '@prisma/client';
+import type { Logger } from 'pino';
 import type { OrchestratorResult } from '@core/orchestration/index.js';
 import { CreateTodoOrchestrator } from './todos.orchestrator.js';
 import type { CreateTodoInput, Todo } from './todos.types.js';
@@ -10,8 +11,8 @@ import type { CreateTodoInput, Todo } from './todos.types.js';
 export class TodoService {
   constructor(private prisma: PrismaClient) {}
 
-  public async createTodo(input: CreateTodoInput): Promise<OrchestratorResult<Todo>> {
-    const orchestrator = new CreateTodoOrchestrator(this.prisma);
+  public async createTodo(input: CreateTodoInput, log?: Logger): Promise<OrchestratorResult<Todo>> {
+    const orchestrator = new CreateTodoOrchestrator(this.prisma, log);
     return orchestrator.execute(input);
   }
 

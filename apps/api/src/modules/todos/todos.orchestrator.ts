@@ -1,3 +1,4 @@
+import type { Logger } from 'pino';
 import { BaseOrchestrator, DefaultPerformanceTracker } from '@core/orchestration/index.js';
 import type { PipelineStage } from '@core/orchestration/index.js';
 import type { PrismaClient } from '@prisma/client';
@@ -13,13 +14,16 @@ export class CreateTodoOrchestrator extends BaseOrchestrator<
   Todo,
   CreateTodoInput
 > {
-  constructor(private prisma: PrismaClient) {
-    super({
-      name: 'CreateTodoOrchestrator',
-      timeout: 5000,
-      enableMetrics: true,
-      logErrors: true,
-    });
+  constructor(private prisma: PrismaClient, log?: Logger) {
+    super(
+      {
+        name: 'CreateTodoOrchestrator',
+        timeout: 5000,
+        enableMetrics: true,
+        logErrors: true,
+      },
+      log
+    );
   }
 
   protected async initializeContext(input: CreateTodoInput): Promise<TodoPipelineContext> {

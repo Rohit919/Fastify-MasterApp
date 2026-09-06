@@ -25,8 +25,8 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Install dumb-init and OpenSSL (required by Prisma for database connections)
-RUN apk add --no-cache dumb-init openssl
+# Install dumb-init, OpenSSL (Prisma), and wget (healthcheck)
+RUN apk add --no-cache dumb-init openssl wget
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
@@ -44,9 +44,9 @@ USER nodejs
 # Expose port
 EXPOSE 3000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/api/v1/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1); });"
+# Health check — hits /ready (verifies DB connectivity, not just process liveness)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/v1/ready || exit 1
 
 # Start application with dumb-init
 ENTRYPOINT ["dumb-init", "--"]

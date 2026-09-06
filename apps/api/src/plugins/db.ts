@@ -1,5 +1,5 @@
 import fp from 'fastify-plugin';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import type { FastifyPluginAsync } from 'fastify';
 
 // Extend Fastify instance type
@@ -9,20 +9,66 @@ declare module 'fastify' {
   }
 }
 
-const dbPlugin: FastifyPluginAsync = async (fastify, _options) => {
-  const prisma = new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['query', 'info', 'warn', 'error'] : ['error'],
+const SLOW_QUERY_THRESHOLD_MS = 500;
+const QUERY_TIMEOUT_MS = 10_000;
+
+const dbPlugin: FastifyPluginAsync = async (fastify) => {
+  const isDev = fastify.config.NODE_ENV === 'development';
+
+  const base = new PrismaClient({
+    log: [
+      { emit: 'event', level: 'query' },
+      { emit: 'event', level: 'warn' },
+      { emit: 'event', level: 'error' },
+    ],
   });
 
-  // Connect to database
-  await prisma.$connect();
+  // ── Slow-query logging (all environments) ────────────────────────────────────
+  // Logs any query slower than the threshold with model/duration so performance
+  // regressions are visible. Full query text only in development.
+  base.$on('query', (event: Prisma.QueryEvent) => {
+    if (event.duration > SLOW_QUERY_THRESHOLD_MS) {
+      fastify.log.warn(
+        { durationMs: event.duration, ...(isDev ? { query: event.query } : {}) },
+        'Slow database query'
+      );
+    }
+  });
+  base.$on('error', (event: Prisma.LogEvent) => {
+    fastify.log.error({ target: event.target }, event.message);
+  });
 
-  // Decorate Fastify instance with Prisma client
-  fastify.decorate('prisma', prisma);
+  // ── Query timeout (safety net for runaway queries) ───────────────────────────
+  // A server-level guard: any single Prisma operation that exceeds the timeout
+  // rejects instead of holding a worker indefinitely. Per-stage orchestrator
+  // timeouts are tighter; this catches anything without one.
+  const prisma = base.$extends({
+    query: {
+      async $allOperations({ model, operation, args, query }) {
+        return Promise.race([
+          query(args),
+          new Promise((_, reject) =>
+            setTimeout(
+              () =>
+                reject(
+                  new Error(`Prisma query timeout (${QUERY_TIMEOUT_MS}ms): ${model ?? 'raw'}.${operation}`)
+                ),
+              QUERY_TIMEOUT_MS
+            )
+          ),
+        ]);
+      },
+    },
+  });
 
-  // Graceful shutdown
+  await base.$connect();
+
+  // The extended client is a superset of PrismaClient at runtime; cast for the
+  // decorator so callers keep the familiar PrismaClient type.
+  fastify.decorate('prisma', prisma as unknown as PrismaClient);
+
   fastify.addHook('onClose', async () => {
-    await prisma.$disconnect();
+    await base.$disconnect();
   });
 };
 

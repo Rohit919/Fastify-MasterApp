@@ -1,3 +1,4 @@
+import type { Logger } from 'pino';
 import type {
   OperationContext,
   OrchestratorConfig,
@@ -8,6 +9,7 @@ import type {
 import { PerformanceInterceptor } from './performance-interceptor.js';
 import { DefaultPerformanceTracker, NullPerformanceTracker } from './performance-tracker.js';
 import { OrchestratorMetrics } from './orchestrator-metrics.js';
+import { logger as defaultLogger } from '../utils/logger.js';
 
 /**
  * Abstract base class for all orchestrators following the golden pattern
@@ -18,14 +20,19 @@ export abstract class BaseOrchestrator<
   TInput = unknown,
 > {
   protected config: Required<OrchestratorConfig>;
+  protected log: Logger;
 
-  constructor(config: OrchestratorConfig) {
+  constructor(config: OrchestratorConfig, log?: Logger) {
     this.config = {
       name: config.name,
       timeout: config.timeout ?? 30000,
       enableMetrics: config.enableMetrics ?? true,
       logErrors: config.logErrors ?? true,
     };
+    // Use the injected request logger (carries requestId/userId) when available,
+    // otherwise fall back to the module logger. Child logger tags every line
+    // with the orchestrator name for easy filtering.
+    this.log = (log ?? defaultLogger).child({ orchestrator: this.config.name });
   }
 
   /**
@@ -106,7 +113,7 @@ export abstract class BaseOrchestrator<
       }
 
       if (this.config.logErrors) {
-        console.error(`[${this.config.name}] Orchestration error:`, error);
+        this.log.error({ err: error }, 'Orchestration error');
       }
 
       return {
@@ -199,7 +206,7 @@ export abstract class BaseOrchestrator<
 
         // For non-critical stages, log error and continue
         if (this.config.logErrors) {
-          console.warn(`[${this.config.name}] Non-critical stage '${stage.name}' failed:`, error);
+          this.log.warn({ err: error, stage: stage.name }, 'Non-critical stage failed');
         }
 
         // Add error to context
