@@ -9,4 +9,5 @@ export { UnauthorizedError } from './unauthorized-error.js';
 export { ForbiddenError } from './forbidden-error.js';
 export { ConflictError } from './conflict-error.js';
 export { RateLimitError } from './rate-limit-error.js';
+export { CircuitOpenError } from './circuit-open-error.js';
 export { formatErrorResponse, type ErrorResponse } from './format-error-response.js';

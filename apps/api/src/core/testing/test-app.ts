@@ -26,6 +26,7 @@ export const TEST_ENV: Env = {
   HOST: '127.0.0.1',
   LOG_LEVEL: 'silent',
   DATABASE_URL: 'postgresql://test:test@localhost/test',
+  REDIS_URL: 'redis://localhost:6379',
   JWT_SECRET: 'test-secret-that-is-long-enough-for-hs256',
   JWT_EXPIRES_IN: '15m',
   REFRESH_TOKEN_EXPIRES_IN: '7d',

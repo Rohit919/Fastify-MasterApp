@@ -12,7 +12,8 @@ import {
  * Route → Service → Orchestrator → Operations (validate → create → notify)
  */
 const todoRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
-  const todoService = new TodoService(fastify.prisma);
+  // Pass the notifications queue when available (absent in test harness).
+  const todoService = new TodoService(fastify.prisma, fastify.queues?.notifications);
 
   // ── POST / (orchestrated create) ─────────────────────────────────────────────
   fastify.post(
