@@ -17,7 +17,6 @@ export function useLogin() {
     onSuccess: (data) => {
       setSession({
         accessToken: data.accessToken,
-        refreshToken: data.refreshToken,
         user: data.user,
       });
       navigate('/dashboard', { replace: true });

@@ -18,14 +18,12 @@ export const RegisterBody = Type.Object({
 });
 export type RegisterBody = Static<typeof RegisterBody>;
 
-export const RefreshBody = Type.Object({
-  refreshToken: Type.String(),
-});
+// Refresh/logout carry the token in an HTTP-only cookie, not the body.
+// Empty bodies keep the endpoints POST-able with a typed (if empty) schema.
+export const RefreshBody = Type.Object({});
 export type RefreshBody = Static<typeof RefreshBody>;
 
-export const LogoutBody = Type.Object({
-  refreshToken: Type.String(),
-});
+export const LogoutBody = Type.Object({});
 export type LogoutBody = Static<typeof LogoutBody>;
 
 // ── Response shapes ─────────────────────────────────────────────────────────────
@@ -37,11 +35,11 @@ export const AuthUser = Type.Object({
 });
 export type AuthUser = Static<typeof AuthUser>;
 
+// Access token in the body; refresh token is delivered as an HTTP-only cookie.
 export const AuthResponse = Type.Object({
   success: Type.Literal(true),
   data: Type.Object({
     accessToken: Type.String(),
-    refreshToken: Type.String(),
     user: AuthUser,
   }),
 });
@@ -51,7 +49,6 @@ export const TokenPairResponse = Type.Object({
   success: Type.Literal(true),
   data: Type.Object({
     accessToken: Type.String(),
-    refreshToken: Type.String(),
   }),
 });
 export type TokenPairResponse = Static<typeof TokenPairResponse>;

@@ -25,6 +25,7 @@ export default defineConfig({
         'src/server.ts',
         'src/app.ts',
         'src/telemetry.ts',
+        'src/secrets.ts',
         'src/plugins/**',
         // Queue producers/workers + circuit breaker — verified via live smoke,
         // not unit tests (they require Redis/external services).

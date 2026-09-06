@@ -23,6 +23,9 @@ export const envSchema = Type.Object({
   JWT_SECRET: Type.String({ minLength: 32 }),
   JWT_EXPIRES_IN: Type.String({ default: '15m' }),
   REFRESH_TOKEN_EXPIRES_IN: Type.String({ default: '7d' }),
+  // Sets the Secure flag on the refresh-token cookie. Enable in production
+  // (HTTPS); leave false for local HTTP dev.
+  HTTPS_ONLY: Type.Boolean({ default: false }),
 
   // API
   API_PREFIX: Type.String({ default: '/api' }),
@@ -45,6 +48,9 @@ export const envSchema = Type.Object({
   // Swagger — disabled by default; must be explicitly enabled (avoids exposing the schema in prod)
   SWAGGER_ENABLED: Type.Boolean({ default: false }),
   SWAGGER_PATH: Type.String({ default: '/documentation' }),
+
+  // Secrets provider: env (default) | aws | vault | doppler
+  SECRETS_PROVIDER: Type.String({ default: 'env' }),
 
   // Tracing — opt-in. When enabled, spans are exported to the OTLP endpoint.
   OTEL_ENABLED: Type.Boolean({ default: false }),

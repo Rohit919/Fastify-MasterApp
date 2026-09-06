@@ -1,5 +1,6 @@
 import { apiClient } from '@/lib/api-client';
 
-export function logout(refreshToken: string): Promise<{ message: string }> {
-  return apiClient.post<{ message: string }>('/auth/logout', { refreshToken }, true);
+/** Logout — the refresh-token cookie is sent automatically and cleared server-side. */
+export function logout(): Promise<{ message: string }> {
+  return apiClient.post<{ message: string }>('/auth/logout', {}, true);
 }

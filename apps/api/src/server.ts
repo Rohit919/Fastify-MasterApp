@@ -2,8 +2,13 @@
 // so instrumentation patches http/fastify/prisma at module-load time.
 import { stopTelemetry } from './telemetry.js';
 
+import { loadSecrets } from './secrets.js';
 import { buildApp } from './app.js';
 import { logger } from './core/utils/logger.js';
+
+// Load secrets from the configured provider into process.env before the app
+// (and @fastify/env) reads them. Exits 1 on failure.
+await loadSecrets();
 
 // Build the app at module scope so the shutdown handlers can reference it.
 const app = await buildApp().catch((err) => {
