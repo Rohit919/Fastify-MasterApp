@@ -36,3 +36,6 @@ logs/
 # Vite
 apps/admin/dist/
 apps/admin/.vite/
+
+# Local reference material (not part of the project)
+/_Reference/
