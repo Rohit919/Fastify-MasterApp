@@ -17,9 +17,14 @@
  */
 import fp from 'fastify-plugin';
 import type { FastifyPluginAsync } from 'fastify';
-import { ForbiddenError, ErrorCode } from '@core/errors/index.js';
+import { AppError, ErrorCode } from '@core/errors/index.js';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+/** 403 with the dedicated CSRF code so clients/observability can branch on it. */
+function csrfDenied(): AppError {
+  return new AppError('Cross-site request blocked.', 403, true, undefined, ErrorCode.CSRF_FAILED);
+}
 
 function originOf(value: string | undefined): string | null {
   if (!value) return null;
@@ -49,34 +54,24 @@ const csrfPlugin: FastifyPluginAsync = async (fastify) => {
 
     const origin = originOf(request.headers.origin) ?? originOf(request.headers.referer);
 
-    // No Origin/Referer on a cookie-bearing state change is suspicious → deny.
-    if (!origin) {
-      request.log.warn(
-        { event: 'csrf.denied', reason: 'missing-origin', route: request.url, requestId: request.id },
-        'CSRF check failed: missing Origin/Referer'
-      );
-      throw new ForbiddenError('Cross-site request blocked.');
-    }
+    // No Origin/Referer header: browsers always attach one to cross-site
+    // requests, so its absence indicates a non-browser client (curl, mobile,
+    // server-to-server). We fall back to the cookie's SameSite=Strict as the
+    // primary CSRF defense here (the documented model) rather than block
+    // legitimate API clients.
+    if (!origin) return;
 
+    // Origin/Referer present but not on the allowlist → cross-site browser
+    // request. Reject.
     if (!allowedOrigins.has(origin)) {
       request.log.warn(
         { event: 'csrf.denied', reason: 'origin-mismatch', origin, route: request.url, requestId: request.id },
         'CSRF check failed: origin not allowed'
       );
-      // Reuse ForbiddenError but stamp the specific CSRF code for observability.
-      throw new ForbiddenError('Cross-site request blocked.');
+      throw csrfDenied();
     }
   });
-
-  // Expose the code so tests / callers can assert on it if needed.
-  fastify.decorate('csrfErrorCode', ErrorCode.CSRF_FAILED);
 };
-
-declare module 'fastify' {
-  interface FastifyInstance {
-    csrfErrorCode: string;
-  }
-}
 
 export default fp(csrfPlugin, {
   name: 'csrf',

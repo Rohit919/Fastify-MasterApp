@@ -2,7 +2,7 @@ import Fastify from 'fastify';
 import { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import { logger } from '@core/utils/logger.js';
 import { registerGlobalHooks, registerErrorHandlers } from '@core/hooks/index.js';
-import { ErrorCode } from '@core/errors/index.js';
+import { RateLimitError } from '@core/errors/index.js';
 
 // ── Infrastructure plugins ──────────────────────────────────────────────────
 import envPlugin from './plugins/env.js';
@@ -111,20 +111,19 @@ export async function buildApp() {
         req.url === app.config.METRICS_PATH
       );
     },
-    // Emit the canonical error envelope on throttle (ERROR_HANDLING §22) instead
-    // of the plugin's default shape. @fastify/rate-limit still sets the
-    // Retry-After header from `context.ttl`; we echo it in the body too.
-    errorResponseBuilder: (request, context) => ({
-      success: false,
-      error: {
-        code: ErrorCode.RATE_LIMITED,
-        message: 'Too many requests. Please try again later.',
-        statusCode: 429,
-        retryAfter: Math.ceil(context.ttl / 1000),
-        requestId: request.id,
-        timestamp: new Date().toISOString(),
-      },
-    }),
+    // Throw a RateLimitError so the throttle response flows through the global
+    // error handler — which emits the canonical envelope (ERROR_HANDLING §22)
+    // AND sets the Retry-After header. Returning a plain object here breaks
+    // per-route limits: @fastify/rate-limit throws the returned value, and a
+    // non-Error object is classified as a 500 "programming error" by the
+    // handler. A RateLimitError (an AppError, statusCode 429) is handled
+    // correctly for both the global and per-route limiters.
+    errorResponseBuilder: (_request, context) => {
+      throw new RateLimitError(
+        'Too many requests. Please try again later.',
+        Math.ceil(context.ttl / 1000)
+      );
+    },
   });
 
   // ── Global hooks (user context in logs, etc.) ───────────────────────────────

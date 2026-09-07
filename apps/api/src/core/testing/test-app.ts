@@ -10,6 +10,8 @@ import { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import fp from 'fastify-plugin';
 import authPlugin from '../../plugins/auth.js';
 import authorizationPlugin from '../../plugins/authorization.js';
+import csrfPlugin from '../../plugins/csrf.js';
+import corsPlugin from '../../plugins/cors.js';
 import { registerErrorHandlers } from '../hooks/index.js';
 import rootRoutes from '../../modules/root/root.routes.js';
 import healthRoutes from '../../modules/health/health.routes.js';
@@ -203,6 +205,11 @@ export async function buildTestApp(options: BuildTestAppOptions = {}) {
 
   const cookie = await import('@fastify/cookie');
   await app.register(cookie.default);
+
+  // CORS + CSRF (defense-in-depth) — mirrors the production stack so security
+  // behavior is exercised under test.
+  await app.register(corsPlugin);
+  await app.register(csrfPlugin);
 
   // Error handlers must be registered BEFORE routes so the child route
   // encapsulation contexts inherit them (Fastify resolves the handler captured
