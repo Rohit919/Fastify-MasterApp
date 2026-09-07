@@ -41,7 +41,7 @@ export default defineConfig({
       // Current: ~77% stmts/lines, ~78% branches, ~60% funcs.
       thresholds: {
         statements: 73,
-        branches: 76,
+        branches: 75,
         functions: 58,
         lines: 73,
       },

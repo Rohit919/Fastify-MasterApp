@@ -1,21 +1,38 @@
 groups:
-  - name: api.rules
+  # ── HTTP SLO rules ─────────────────────────────────────────────────────────
+  - name: slo.rules
     rules:
-      # More than 5% of requests are 5xx over 5 minutes
-      - alert: HighErrorRate
+      # SLO: 5xx error rate > 1% of total traffic (critical)
+      - alert: SLO5xxErrorRateCritical
         expr: |
           sum(rate(http_requests_total{status_code=~"5.."}[5m]))
           /
-          sum(rate(http_requests_total[5m])) > 0.05
+          sum(rate(http_requests_total[5m])) > 0.01
         for: 2m
         labels:
           severity: critical
         annotations:
-          summary: "High 5xx error rate"
-          description: "{{ $value | humanizePercentage }} of requests are failing over the last 5m."
+          summary: "SLO breach: 5xx error rate above 1%"
+          description: "{{ $value | humanizePercentage }} of requests are returning 5xx over the last 5m — SLO threshold is 1%."
+          runbook_url: "https://github.com/Rohit919/Fastify-MasterApp/blob/main/docs/runbooks/high-error-rate.md"
 
-      # P99 request latency above 1s for 5 minutes
-      - alert: HighLatencyP99
+      # SLO: P99 request latency > 500ms (warning)
+      - alert: SLOLatencyP99Warn
+        expr: |
+          histogram_quantile(
+            0.99,
+            sum(rate(http_request_duration_seconds_bucket[5m])) by (le, route)
+          ) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "SLO warn: P99 latency > 500ms on {{ $labels.route }}"
+          description: "P99 latency is {{ $value | humanizeDuration }} — warn threshold is 500ms."
+          runbook_url: "https://github.com/Rohit919/Fastify-MasterApp/blob/main/docs/runbooks/high-latency.md"
+
+      # SLO: P99 request latency > 1s (critical)
+      - alert: SLOLatencyP99Critical
         expr: |
           histogram_quantile(
             0.99,
@@ -23,11 +40,15 @@ groups:
           ) > 1
         for: 5m
         labels:
-          severity: warning
+          severity: critical
         annotations:
-          summary: "High P99 latency on {{ $labels.route }}"
-          description: "P99 latency is {{ $value | humanizeDuration }}."
+          summary: "SLO breach: P99 latency > 1s on {{ $labels.route }}"
+          description: "P99 latency is {{ $value | humanizeDuration }} — critical threshold is 1s."
+          runbook_url: "https://github.com/Rohit919/Fastify-MasterApp/blob/main/docs/runbooks/high-latency.md"
 
+  # ── API availability ────────────────────────────────────────────────────────
+  - name: api.rules
+    rules:
       # Scrape target is down
       - alert: ServiceDown
         expr: up{job="fastify-app"} == 0
@@ -37,7 +58,77 @@ groups:
         annotations:
           summary: "Fastify API is unreachable"
           description: "Prometheus cannot scrape the API target for over 1m."
+          runbook_url: "https://github.com/Rohit919/Fastify-MasterApp/blob/main/docs/runbooks/service-down.md"
 
+  # ── Database / PgBouncer pool ───────────────────────────────────────────────
+  - name: db.rules
+    rules:
+      # PgBouncer client connections using > 80% of MAX_CLIENT_CONN
+      - alert: PgBouncerPoolSaturation
+        expr: |
+          pgbouncer_pools_client_active_connections
+          /
+          pgbouncer_config_max_client_conn > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PgBouncer connection pool above 80% capacity"
+          description: "Pool utilisation is {{ $value | humanizePercentage }} — consider increasing MAX_CLIENT_CONN or adding read replicas."
+          runbook_url: "https://github.com/Rohit919/Fastify-MasterApp/blob/main/docs/runbooks/pgbouncer-pool.md"
+
+  # ── BullMQ queue health ─────────────────────────────────────────────────────
+  - name: queue.rules
+    rules:
+      # Jobs accumulating in the waiting state (consumer falling behind)
+      - alert: BullMQWaitingJobsHigh
+        expr: bullmq_job_waiting_total > 500
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "BullMQ: high number of waiting jobs ({{ $labels.queue }})"
+          description: "{{ $value }} jobs are waiting — consumer may be overwhelmed or stalled."
+          runbook_url: "https://github.com/Rohit919/Fastify-MasterApp/blob/main/docs/runbooks/bullmq-backlog.md"
+
+      # Jobs piling up in the failed/dead-letter set
+      - alert: BullMQFailedJobsHigh
+        expr: bullmq_job_failed_total > 100
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "BullMQ: high failed-job count ({{ $labels.queue }})"
+          description: "{{ $value }} jobs have failed — check worker logs and the dead-letter queue."
+          runbook_url: "https://github.com/Rohit919/Fastify-MasterApp/blob/main/docs/runbooks/bullmq-failures.md"
+
+  # ── Node.js runtime health ──────────────────────────────────────────────────
+  - name: nodejs.rules
+    rules:
+      # Node.js event-loop P99 lag above 50ms sustained for 2 minutes
+      - alert: EventLoopLagHigh
+        expr: |
+          nodejs_eventloop_lag_p99_seconds * 1000 > 50
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Node.js event-loop P99 lag is high"
+          description: "P99 event-loop lag is {{ $value | humanizeDuration }} — possible CPU starvation or blocking I/O."
+          runbook_url: "https://github.com/Rohit919/Fastify-MasterApp/blob/main/docs/runbooks/event-loop-lag.md"
+
+      # Active handles growing unbounded (possible resource leak)
+      - alert: ActiveHandlesHigh
+        expr: nodejs_active_handles > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Node.js active handles count is unusually high"
+          description: "{{ $value }} active handles — check for unclosed sockets or file descriptors."
+          runbook_url: "https://github.com/Rohit919/Fastify-MasterApp/blob/main/docs/runbooks/active-handles.md"
+
+  # ── Orchestrator ────────────────────────────────────────────────────────────
   - name: orchestrator.rules
     rules:
       # Too many concurrent orchestrator operations (possible leak or slowdown)
@@ -49,6 +140,7 @@ groups:
         annotations:
           summary: "High concurrent orchestrator operations ({{ $labels.service }})"
           description: "{{ $value }} active operations for over 2m."
+          runbook_url: "https://github.com/Rohit919/Fastify-MasterApp/blob/main/docs/runbooks/orchestrator-overload.md"
 
       # Orchestrator pipeline error rate elevated
       - alert: OrchestratorErrors
@@ -59,3 +151,4 @@ groups:
         annotations:
           summary: "Orchestrator pipeline errors ({{ $labels.service }}/{{ $labels.stage }})"
           description: "Pipeline error rate is {{ $value }}/s over the last 5m."
+          runbook_url: "https://github.com/Rohit919/Fastify-MasterApp/blob/main/docs/runbooks/orchestrator-errors.md"
