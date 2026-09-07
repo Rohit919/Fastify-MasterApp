@@ -4,7 +4,7 @@
  * Verifies the global error handler, 404 handler, and common error shapes
  * that cut across all routes.
  */
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { buildTestApp, signTestToken } from '@core/testing/test-app.js';
 
 // ─── 404 not found ────────────────────────────────────────────────────────────
@@ -130,6 +130,16 @@ describe('500 Internal server errors', () => {
 // ─── Health endpoints ─────────────────────────────────────────────────────────
 
 describe('Health endpoints', () => {
+  // Vitest runs under load — the event-loop lag histogram can read high values
+  // (hundreds of ms). Set the threshold well above any realistic test value so
+  // readiness checks don't spuriously fail with 503 during test runs.
+  beforeEach(() => {
+    vi.stubEnv('EVENT_LOOP_LAG_THRESHOLD_MS', '9999');
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it('GET /api/v1/health returns 200 ok', async () => {
     const app = await buildTestApp();
 
@@ -144,7 +154,7 @@ describe('Health endpoints', () => {
     await app.close();
   });
 
-  it('GET /api/v1/ready returns 200 when DB is reachable', async () => {
+  it('GET /api/v1/ready returns 200 when DB is reachable with correct shape', async () => {
     const app = await buildTestApp({
       prisma: {
         $queryRaw: vi.fn().mockResolvedValue([{ '?column?': 1 }]),
@@ -157,6 +167,14 @@ describe('Health endpoints', () => {
     const body = res.json();
     expect(body.status).toBe('ready');
     expect(body.services.database).toBe(true);
+    // event-loop lag fields must be present
+    expect(body.eventLoop).toBeDefined();
+    expect(body.eventLoop.lagMs).toBeTypeOf('number');
+    expect(body.eventLoop.healthy).toBe(true); // threshold is 9999ms in tests
+    // process fields must be present
+    expect(body.process).toBeDefined();
+    expect(body.process.activeHandles).toBeTypeOf('number');
+    expect(body.process.activeRequests).toBeTypeOf('number');
 
     await app.close();
   });
@@ -174,6 +192,27 @@ describe('Health endpoints', () => {
     const body = res.json();
     expect(body.status).toBe('not_ready');
     expect(body.services.database).toBe(false);
+    expect(body.eventLoop).toBeDefined();
+    expect(body.process).toBeDefined();
+
+    await app.close();
+  });
+
+  it('GET /api/v1/ready: eventLoop.lagMs is a non-negative number', async () => {
+    const app = await buildTestApp({
+      prisma: {
+        $queryRaw: vi.fn().mockResolvedValue([{ '?column?': 1 }]),
+      },
+    });
+
+    const res = await app.inject({ method: 'GET', url: '/api/v1/ready' });
+    const body = res.json();
+
+    // Verify the lag field is a numeric measurement (value depends on system load)
+    expect(body.eventLoop.lagMs).toBeTypeOf('number');
+    expect(body.eventLoop.lagMs).toBeGreaterThanOrEqual(0);
+    // With threshold=9999, healthy must be true regardless of actual lag
+    expect(body.eventLoop.healthy).toBe(true);
 
     await app.close();
   });
