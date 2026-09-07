@@ -31,6 +31,16 @@ export async function buildApp() {
     requestIdLogLabel: 'requestId',
     disableRequestLogging: false,
     maxParamLength: 200,
+    // Strip undeclared body properties (mass-assignment defence) and fill schema
+    // defaults. TypeBox objects are additionalProperties:false, so removeAdditional
+    // silently drops unknown fields instead of rejecting.
+    ajv: {
+      customOptions: {
+        removeAdditional: true,
+        useDefaults: true,
+        coerceTypes: 'array',
+      },
+    },
   }).withTypeProvider<TypeBoxTypeProvider>();
 
   // ── Infrastructure plugin registration (order matters) ──────────────────────
@@ -45,6 +55,9 @@ export async function buildApp() {
 
   const sensiblePlugin = await import('@fastify/sensible');
   await app.register(sensiblePlugin.default);
+
+  const cookiePlugin = await import('@fastify/cookie');
+  await app.register(cookiePlugin.default);
 
   const helmetPlugin = await import('@fastify/helmet');
   await app.register(helmetPlugin.default, {

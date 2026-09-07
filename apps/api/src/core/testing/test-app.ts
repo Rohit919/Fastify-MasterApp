@@ -36,10 +36,12 @@ export const TEST_ENV: Env = {
   RATE_LIMIT_TIME_WINDOW: 60000,
   CORS_ORIGIN: 'http://localhost:3000',
   CORS_CREDENTIALS: true,
+  HTTPS_ONLY: false,
   METRICS_ENABLED: false,
   METRICS_PATH: '/metrics',
   SWAGGER_ENABLED: false,
   SWAGGER_PATH: '/documentation',
+  SECRETS_PROVIDER: 'env',
   OTEL_ENABLED: false,
   OTEL_EXPORTER_OTLP_ENDPOINT: 'http://localhost:4318/v1/traces',
   OTEL_SERVICE_NAME: 'fastify-api-test',
@@ -105,7 +107,10 @@ export async function buildTestApp(options: BuildTestAppOptions = {}) {
   const env = { ...TEST_ENV, ...options.env };
   const mockPrisma = buildMockPrisma(options.prisma ?? {});
 
-  const app = Fastify({ logger: false }).withTypeProvider<TypeBoxTypeProvider>();
+  const app = Fastify({
+    logger: false,
+    ajv: { customOptions: { removeAdditional: true, useDefaults: true, coerceTypes: 'array' } },
+  }).withTypeProvider<TypeBoxTypeProvider>();
 
   // Inject mock env — name inside fp() so dependency checks pass
   await app.register(
@@ -123,6 +128,9 @@ export async function buildTestApp(options: BuildTestAppOptions = {}) {
 
   const sensible = await import('@fastify/sensible');
   await app.register(sensible.default);
+
+  const cookie = await import('@fastify/cookie');
+  await app.register(cookie.default);
 
   await app.register(rootRoutes);
 

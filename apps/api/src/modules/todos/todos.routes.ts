@@ -1,4 +1,6 @@
+import { Type } from '@sinclair/typebox';
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
+import { requirePermission, requireOwnership } from '@core/authorization/index.js';
 import { TodoService } from './todos.service.js';
 import {
   CreateTodoBodySchema,
@@ -105,6 +107,56 @@ const todoRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
       return reply.send({
         success: true,
         data: todos.map((todo) => ({ ...todo, description: todo.description ?? '' })),
+      });
+    }
+  );
+
+  // ── GET /:id ─── RBAC + ownership demonstration ─────────────────────────────
+  // requirePermission gates by role; requireOwnership ensures a 'user' can only
+  // read their own todo (admins bypass ownership).
+  fastify.get(
+    '/:id',
+    {
+      preValidation: [fastify.authenticate],
+      preHandler: [
+        requirePermission('todo', 'read'),
+        requireOwnership(async (req) => {
+          const { id } = req.params as { id: string };
+          const todo = await fastify.prisma.todo.findUnique({
+            where: { id },
+            select: { userId: true },
+          });
+          return todo?.userId;
+        }),
+      ],
+      schema: {
+        description: 'Get a single todo (owner or admin only)',
+        tags: ['Todos'],
+        security: [{ bearerAuth: [] }],
+        params: Type.Object({ id: Type.String() }),
+        response: {
+          200: Type.Object({
+            success: Type.Literal(true),
+            data: Type.Object({
+              id: Type.String(),
+              title: Type.String(),
+              description: Type.String(),
+              completed: Type.Boolean(),
+            }),
+          }),
+        },
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+      const todo = await fastify.prisma.todo.findUnique({
+        where: { id },
+        select: { id: true, title: true, description: true, completed: true },
+      });
+      // Ownership preHandler already guaranteed existence + access.
+      return reply.send({
+        success: true,
+        data: { ...todo!, description: todo!.description ?? '' },
       });
     }
   );

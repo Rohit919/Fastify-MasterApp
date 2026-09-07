@@ -44,7 +44,12 @@ describe('POST /api/v1/auth/login', () => {
     const body = res.json();
     expect(body.success).toBe(true);
     expect(body.data.accessToken).toBeTypeOf('string');
-    expect(body.data.refreshToken).toBeTypeOf('string');
+    // Refresh token is delivered as an HTTP-only cookie, not in the body.
+    expect(body.data.refreshToken).toBeUndefined();
+    const setCookie = res.headers['set-cookie'];
+    expect(String(setCookie)).toMatch(/refreshToken=/);
+    expect(String(setCookie)).toMatch(/HttpOnly/i);
+    expect(String(setCookie)).toMatch(/SameSite=Strict/i);
     expect(body.data.user.email).toBe('test@example.com');
     expect(body.data.user).not.toHaveProperty('password');
 
@@ -145,7 +150,8 @@ describe('POST /api/v1/auth/register', () => {
     const body = res.json();
     expect(body.success).toBe(true);
     expect(body.data.accessToken).toBeTypeOf('string');
-    expect(body.data.refreshToken).toBeTypeOf('string');
+    expect(body.data.refreshToken).toBeUndefined();
+    expect(String(res.headers['set-cookie'])).toMatch(/refreshToken=.*HttpOnly/i);
     expect(body.data.user.name).toBe('Test User');
 
     await app.close();
@@ -217,14 +223,14 @@ describe('POST /api/v1/auth/refresh', () => {
     const res = await app.inject({
       method: 'POST',
       url: `${BASE_URL}/refresh`,
-      payload: { refreshToken: 'valid-refresh-token' },
+      headers: { cookie: 'refreshToken=valid-refresh-token' },
     });
 
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(body.success).toBe(true);
     expect(body.data.accessToken).toBeTypeOf('string');
-    expect(body.data.refreshToken).toBeTypeOf('string');
+    expect(body.data.refreshToken).toBeUndefined();
 
     // Old token must have been revoked
     expect(updateMock).toHaveBeenCalledWith(
@@ -249,7 +255,7 @@ describe('POST /api/v1/auth/refresh', () => {
     const res = await app.inject({
       method: 'POST',
       url: `${BASE_URL}/refresh`,
-      payload: { refreshToken: 'does-not-exist' },
+      headers: { cookie: 'refreshToken=does-not-exist' },
     });
 
     expect(res.statusCode).toBe(401);
@@ -272,7 +278,7 @@ describe('POST /api/v1/auth/refresh', () => {
     const res = await app.inject({
       method: 'POST',
       url: `${BASE_URL}/refresh`,
-      payload: { refreshToken: 'valid-refresh-token' },
+      headers: { cookie: 'refreshToken=valid-refresh-token' },
     });
 
     expect(res.statusCode).toBe(401);
@@ -298,7 +304,7 @@ describe('POST /api/v1/auth/refresh', () => {
     const res = await app.inject({
       method: 'POST',
       url: `${BASE_URL}/refresh`,
-      payload: { refreshToken: 'valid-refresh-token' },
+      headers: { cookie: 'refreshToken=valid-refresh-token' },
     });
 
     expect(res.statusCode).toBe(401);
@@ -327,7 +333,7 @@ describe('POST /api/v1/auth/logout', () => {
     const res = await app.inject({
       method: 'POST',
       url: `${BASE_URL}/logout`,
-      payload: { refreshToken: 'any-token' },
+      headers: { cookie: 'refreshToken=any-token' },
     });
 
     expect(res.statusCode).toBe(200);
@@ -352,7 +358,7 @@ describe('POST /api/v1/auth/logout', () => {
     const res = await app.inject({
       method: 'POST',
       url: `${BASE_URL}/logout`,
-      payload: { refreshToken: 'ghost-token' },
+      headers: { cookie: 'refreshToken=ghost-token' },
     });
 
     expect(res.statusCode).toBe(200);
@@ -528,7 +534,7 @@ describe('POST /api/v1/auth/refresh — family reuse detection', () => {
     const res = await app.inject({
       method: 'POST',
       url: `${BASE_URL}/refresh`,
-      payload: { refreshToken: 'reused-token' },
+      headers: { cookie: 'refreshToken=reused-token' },
     });
 
     expect(res.statusCode).toBe(401);
@@ -536,6 +542,42 @@ describe('POST /api/v1/auth/refresh — family reuse detection', () => {
     expect(updateManyMock).toHaveBeenCalledWith(
       expect.objectContaining({ where: expect.objectContaining({ family: 'fam-123' }) })
     );
+
+    await app.close();
+  });
+});
+
+// ─── Phase 3 — mass-assignment protection (REQ-109) ─────────────────────────
+
+describe('POST /api/v1/auth/register — additionalProperties stripping', () => {
+  it('ignores an injected role field (mass-assignment defence)', async () => {
+    const createMock = vi.fn().mockResolvedValue({ ...MOCK_USER, role: 'user' });
+
+    const app = await buildTestApp({
+      prisma: {
+        user: {
+          findUnique: vi.fn().mockResolvedValue(null),
+          create: createMock,
+        },
+        refreshToken: { create: vi.fn().mockResolvedValue({ id: 'rt' }) },
+      },
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `${BASE_URL}/register`,
+      payload: {
+        email: 'attacker@example.com',
+        password: 'password123',
+        name: 'Attacker',
+        role: 'admin', // not in schema — must be stripped
+      },
+    });
+
+    expect(res.statusCode).toBe(201);
+    // The Prisma create must have been called with role 'user', never 'admin'.
+    const createArg = createMock.mock.calls[0]?.[0];
+    expect(createArg.data.role).toBe('user');
 
     await app.close();
   });

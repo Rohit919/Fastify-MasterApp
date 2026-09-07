@@ -1,13 +1,11 @@
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
-import type { FastifyRequest } from 'fastify';
+import type { FastifyRequest, FastifyReply } from 'fastify';
 import { ValidationError, UnauthorizedError } from '@core/errors/index.js';
 import { parseDurationMs } from '@core/utils/index.js';
 import { hashPassword, verifyPassword } from './operations/index.js';
 import {
   LoginBodySchema,
   RegisterBodySchema,
-  RefreshBodySchema,
-  LogoutBodySchema,
   AuthResponseSchema,
   TokenPairResponseSchema,
   VerifyResponseSchema,
@@ -23,6 +21,21 @@ const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 min
 // bcrypt.compare against this takes the same time as comparing against a real hash,
 // preventing timing attacks that reveal whether an email is registered.
 const FAKE_HASH = '$2b$10$abcdefghijklmnopqrstuuEFGHIJKLMNOPQRSTUVWXYZabcde';
+
+// Refresh token cookie: HTTP-only (no JS access), SameSite=Strict (CSRF), and
+// Path-scoped to the refresh endpoint so it isn't sent on every request.
+const REFRESH_COOKIE = 'refreshToken';
+const REFRESH_COOKIE_PATH = '/api/v1/auth';
+
+function setRefreshCookie(reply: FastifyReply, token: string, secure: boolean, maxAgeMs: number): void {
+  reply.setCookie(REFRESH_COOKIE, token, {
+    httpOnly: true,
+    secure,
+    sameSite: 'strict',
+    path: REFRESH_COOKIE_PATH,
+    maxAge: Math.floor(maxAgeMs / 1000),
+  });
+}
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -119,11 +132,17 @@ const authRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
         // undefined = new family for this login session
       );
 
+      setRefreshCookie(
+        reply,
+        refreshToken,
+        fastify.config.HTTPS_ONLY,
+        parseDurationMs(fastify.config.REFRESH_TOKEN_EXPIRES_IN)
+      );
+
       return reply.send({
         success: true,
         data: {
           accessToken,
-          refreshToken,
           user: { id: user.id, email: user.email, name: user.name, role: user.role },
         },
       });
@@ -166,11 +185,17 @@ const authRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
         fastify.config.REFRESH_TOKEN_EXPIRES_IN,
       );
 
+      setRefreshCookie(
+        reply,
+        refreshToken,
+        fastify.config.HTTPS_ONLY,
+        parseDurationMs(fastify.config.REFRESH_TOKEN_EXPIRES_IN)
+      );
+
       return reply.status(201).send({
         success: true,
         data: {
           accessToken,
-          refreshToken,
           user: { id: user.id, email: user.email, name: user.name, role: user.role },
         },
       });
@@ -186,20 +211,26 @@ const authRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
           max: 10,
           timeWindow: '1 minute',
           keyGenerator: (req: FastifyRequest) => {
-            const rt = (req.body as { refreshToken?: string } | undefined)?.refreshToken;
+            const rt = req.cookies?.[REFRESH_COOKIE];
             return `refresh:${rt?.slice(0, 8) ?? req.ip}`;
           },
         },
       },
       schema: {
-        description: 'Rotate refresh token (token family detection)',
+        description: 'Rotate refresh token from the HTTP-only cookie (family detection)',
         tags: ['Auth'],
-        body: RefreshBodySchema,
         response: { 200: TokenPairResponseSchema, 401: ErrorResponseSchema },
       },
     },
     async (request, reply) => {
-      const { refreshToken } = request.body;
+      const refreshToken = request.cookies?.[REFRESH_COOKIE];
+
+      if (!refreshToken) {
+        return reply.status(401).send({
+          success: false,
+          error: { message: 'Missing refresh token', statusCode: 401 },
+        });
+      }
 
       const stored = await fastify.prisma.refreshToken.findUnique({
         where: { token: refreshToken },
@@ -257,9 +288,16 @@ const authRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
         stored.family, // continue the same family
       );
 
+      setRefreshCookie(
+        reply,
+        newRefreshToken,
+        fastify.config.HTTPS_ONLY,
+        parseDurationMs(fastify.config.REFRESH_TOKEN_EXPIRES_IN)
+      );
+
       return reply.send({
         success: true,
-        data: { accessToken: newAccessToken, refreshToken: newRefreshToken },
+        data: { accessToken: newAccessToken },
       });
     }
   );
@@ -269,17 +307,20 @@ const authRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
     '/logout',
     {
       schema: {
-        description: 'Revoke a refresh token — idempotent',
+        description: 'Revoke the refresh-token cookie — idempotent',
         tags: ['Auth'],
-        body: LogoutBodySchema,
         response: { 200: LogoutResponseSchema },
       },
     },
     async (request, reply) => {
-      await fastify.prisma.refreshToken.updateMany({
-        where: { token: request.body.refreshToken, revokedAt: null },
-        data: { revokedAt: new Date() },
-      });
+      const refreshToken = request.cookies?.[REFRESH_COOKIE];
+      if (refreshToken) {
+        await fastify.prisma.refreshToken.updateMany({
+          where: { token: refreshToken, revokedAt: null },
+          data: { revokedAt: new Date() },
+        });
+      }
+      reply.clearCookie(REFRESH_COOKIE, { path: REFRESH_COOKIE_PATH });
       return reply.send({ success: true, data: { message: 'Logged out successfully' } });
     }
   );

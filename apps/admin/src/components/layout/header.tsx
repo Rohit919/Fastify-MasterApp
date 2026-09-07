@@ -4,13 +4,12 @@ import { logout } from '@/modules/auth/api/logout';
 
 export function Header() {
   const user = useAuthStore((s) => s.user);
-  const refreshToken = useAuthStore((s) => s.refreshToken);
   const clearSession = useAuthStore((s) => s.clearSession);
 
   const handleLogout = async () => {
-    // Best-effort server-side revocation; clear local session regardless.
+    // Best-effort server-side revocation (cookie sent automatically); clear local regardless.
     try {
-      if (refreshToken) await logout(refreshToken);
+      await logout();
     } catch {
       // Ignore — logout is idempotent and we clear locally anyway.
     }

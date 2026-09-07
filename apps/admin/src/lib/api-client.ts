@@ -43,6 +43,8 @@ async function request<TData>(path: string, options: RequestOptions = {}): Promi
     method,
     headers,
     body: body === undefined ? undefined : JSON.stringify(body),
+    // Send/receive the HTTP-only refresh cookie (needed cross-origin).
+    credentials: 'include',
   });
 
   const json = (await res.json().catch(() => null)) as unknown;
