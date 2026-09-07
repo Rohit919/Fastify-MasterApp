@@ -8,6 +8,10 @@ on:
 
 env:
   NODE_VERSION: '22'
+  # Opt into Node.js 24 for action runners now — GitHub will force this from
+  # June 2026. actions/checkout@v4 and actions/setup-node@v4 bundle Node.js 20
+  # internally; this env var makes the runner execute them on Node.js 24 instead.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
   # ── Type & format checks ──────────────────────────────────────────────────
@@ -75,7 +79,7 @@ jobs:
       - name: Run tests with coverage
         run: npm run test:coverage --workspace @app/api
       - name: Upload coverage
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           files: ./apps/api/coverage/lcov.info
           fail_ci_if_error: false
