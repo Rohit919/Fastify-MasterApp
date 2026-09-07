@@ -2,8 +2,9 @@
 // Learn more: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider      = "prisma-client-js"
-  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+  provider        = "prisma-client-js"
+  binaryTargets   = ["native", "linux-musl-openssl-3.0.x"]
+  previewFeatures = ["tracing"]
 }
 
 datasource db {
@@ -15,31 +16,37 @@ datasource db {
 
 // User model
 model User {
-  id            String         @id @default(cuid())
-  email         String         @unique
-  password      String
-  name          String
-  role          String         @default("user")
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  refreshTokens RefreshToken[]
+  id                  String         @id @default(cuid())
+  email               String         @unique
+  password            String
+  name                String
+  role                String         @default("user")
+  // Account lockout (brute-force protection)
+  failedLoginAttempts Int            @default(0)
+  lockedUntil         DateTime?
+  lastLoginAt         DateTime?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  refreshTokens       RefreshToken[]
 
   @@index([email])
   @@map("users")
 }
 
-// Refresh token model - supports rotation and revocation
+// Refresh token model - supports rotation, revocation, and family reuse detection
 model RefreshToken {
-  id        String   @id @default(cuid())
-  token     String   @unique
+  id        String    @id @default(cuid())
+  token     String    @unique
+  family    String    // groups all rotations from one login session
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   revokedAt DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   @@index([userId])
   @@index([token])
+  @@index([family])
   @@map("refresh_tokens")
 }
 

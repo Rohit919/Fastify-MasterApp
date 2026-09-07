@@ -1,0 +1,38 @@
+# Secrets — must never enter an image layer
+.env
+.env.*
+!.env.example
+
+# Git
+.git
+.gitignore
+
+# Dependencies (installed fresh in the builder stage)
+node_modules
+apps/*/node_modules
+packages/*/node_modules
+
+# Build artifacts (built inside the image)
+dist
+build
+apps/*/dist
+packages/*/dist
+*.tsbuildinfo
+
+# Test / coverage
+coverage
+**/__tests__
+.nyc_output
+
+# Tooling & docs not needed at build time
+.husky
+.kiro
+docs
+*.md
+!README.md
+.vscode
+.idea
+*.swp
+
+# The admin app is built/deployed separately from the API image
+apps/admin

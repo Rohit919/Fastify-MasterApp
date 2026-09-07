@@ -1,0 +1,108 @@
+import fp from 'fastify-plugin';
+import { collectDefaultMetrics, register, Counter, Histogram, Gauge } from 'prom-client';
+import type { FastifyPluginAsync } from 'fastify';
+
+// Extend Fastify instance type
+declare module 'fastify' {
+  interface FastifyInstance {
+    metrics: {
+      register: typeof register;
+      httpRequestDuration: Histogram<string>;
+      httpRequestsTotal: Counter<string>;
+      httpRequestsInProgress: Gauge<string>;
+    };
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/require-await
+const metricsPlugin: FastifyPluginAsync = async (fastify, _options) => {
+  // Collect default metrics
+  collectDefaultMetrics({ register });
+
+  // Create custom metrics
+  const httpRequestDuration = new Histogram({
+    name: 'http_request_duration_seconds',
+    help: 'Duration of HTTP requests in seconds',
+    labelNames: ['method', 'route', 'status_code'],
+    buckets: [0.001, 0.005, 0.015, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 1, 2, 5],
+  });
+
+  const httpRequestsTotal = new Counter({
+    name: 'http_requests_total',
+    help: 'Total number of HTTP requests',
+    labelNames: ['method', 'route', 'status_code'],
+  });
+
+  const httpRequestsInProgress = new Gauge({
+    name: 'http_requests_in_progress',
+    help: 'Number of HTTP requests in progress',
+    labelNames: ['method'],
+  });
+
+  // Register metrics
+  register.registerMetric(httpRequestDuration);
+  register.registerMetric(httpRequestsTotal);
+  register.registerMetric(httpRequestsInProgress);
+
+  // Decorate fastify with metrics
+  fastify.decorate('metrics', {
+    register,
+    httpRequestDuration,
+    httpRequestsTotal,
+    httpRequestsInProgress,
+  });
+
+  // Add hooks to track metrics
+  fastify.addHook('onRequest', async (request, _reply) => {
+    // Track in-progress requests
+    httpRequestsInProgress.labels({ method: request.method }).inc();
+
+    // Nanosecond-resolution start time (accurate for sub-millisecond responses)
+    request.startHrTime = process.hrtime.bigint();
+  });
+
+  fastify.addHook('onResponse', async (request, reply) => {
+    // Convert nanoseconds → seconds (Prometheus convention)
+    const start = request.startHrTime ?? process.hrtime.bigint();
+    const durationSeconds = Number(process.hrtime.bigint() - start) / 1e9;
+    const route = request.routeOptions?.config?.url || request.url;
+    const labels = {
+      method: request.method,
+      route: route,
+      status_code: reply.statusCode.toString(),
+    };
+
+    // Record metrics
+    httpRequestDuration.labels(labels).observe(durationSeconds);
+    httpRequestsTotal.labels(labels).inc();
+    httpRequestsInProgress.labels({ method: request.method }).dec();
+  });
+
+  // Add metrics endpoint — optionally gated behind a bearer token.
+  if (fastify.config.METRICS_ENABLED) {
+    const metricsToken = fastify.config.METRICS_TOKEN;
+    fastify.get(fastify.config.METRICS_PATH, async (request, reply) => {
+      if (metricsToken) {
+        const header = request.headers.authorization;
+        const provided = header?.startsWith('Bearer ') ? header.slice(7) : null;
+        if (provided !== metricsToken) {
+          return reply.status(401).send({ error: 'Unauthorized' });
+        }
+      }
+      const metrics = await register.metrics();
+      return reply.type(register.contentType).send(metrics);
+    });
+  }
+};
+
+// Extend request type
+declare module 'fastify' {
+  interface FastifyRequest {
+    startHrTime?: bigint;
+  }
+}
+
+export default fp(metricsPlugin, {
+  name: 'metrics',
+  dependencies: ['env'],
+});

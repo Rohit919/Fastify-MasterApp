@@ -1,0 +1,61 @@
+groups:
+  - name: api.rules
+    rules:
+      # More than 5% of requests are 5xx over 5 minutes
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(http_requests_total{status_code=~"5.."}[5m]))
+          /
+          sum(rate(http_requests_total[5m])) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High 5xx error rate"
+          description: "{{ $value | humanizePercentage }} of requests are failing over the last 5m."
+
+      # P99 request latency above 1s for 5 minutes
+      - alert: HighLatencyP99
+        expr: |
+          histogram_quantile(
+            0.99,
+            sum(rate(http_request_duration_seconds_bucket[5m])) by (le, route)
+          ) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High P99 latency on {{ $labels.route }}"
+          description: "P99 latency is {{ $value | humanizeDuration }}."
+
+      # Scrape target is down
+      - alert: ServiceDown
+        expr: up{job="fastify-app"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Fastify API is unreachable"
+          description: "Prometheus cannot scrape the API target for over 1m."
+
+  - name: orchestrator.rules
+    rules:
+      # Too many concurrent orchestrator operations (possible leak or slowdown)
+      - alert: OrchestratorOverload
+        expr: orchestrator_active_operations > 50
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High concurrent orchestrator operations ({{ $labels.service }})"
+          description: "{{ $value }} active operations for over 2m."
+
+      # Orchestrator pipeline error rate elevated
+      - alert: OrchestratorErrors
+        expr: rate(orchestrator_pipeline_errors_total[5m]) > 0.1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Orchestrator pipeline errors ({{ $labels.service }}/{{ $labels.stage }})"
+          description: "Pipeline error rate is {{ $value }}/s over the last 5m."

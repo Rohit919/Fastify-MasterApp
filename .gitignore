@@ -1,1 +1,38 @@
-node_modules
+# Dependencies
+node_modules/
+.npm/
+
+# Build output
+dist/
+build/
+apps/*/dist/
+packages/*/dist/
+
+# Environment files — NEVER commit these
+.env
+.env.*
+!.env.example
+
+# Prisma
+prisma/generated/
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Logs
+*.log
+logs/
+
+# OS / Editor
+.DS_Store
+.vscode/settings.json
+*.swp
+*.swo
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Vite
+apps/admin/dist/
+apps/admin/.vite/
