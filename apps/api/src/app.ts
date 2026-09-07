@@ -6,6 +6,8 @@ import { registerGlobalHooks, registerErrorHandlers } from '@core/hooks/index.js
 // ── Infrastructure plugins ──────────────────────────────────────────────────
 import envPlugin from './plugins/env.js';
 import corsPlugin from './plugins/cors.js';
+import redisPlugin from './plugins/redis.js';
+import queuePlugin from './plugins/queue.js';
 import dbPlugin from './plugins/db.js';
 import authPlugin from './plugins/auth.js';
 import metricsPlugin from './plugins/metrics.js';
@@ -33,6 +35,8 @@ export async function buildApp() {
   // ── Infrastructure plugin registration (order matters) ──────────────────────
   await app.register(envPlugin);
   await app.register(corsPlugin);
+  await app.register(redisPlugin);
+  await app.register(queuePlugin);
   await app.register(dbPlugin);
   await app.register(authPlugin);
   await app.register(metricsPlugin);
@@ -70,6 +74,10 @@ export async function buildApp() {
   await app.register(rateLimitPlugin.default, {
     max: app.config.RATE_LIMIT_MAX,
     timeWindow: app.config.RATE_LIMIT_TIME_WINDOW,
+    // Distributed store: counters are shared across all API replicas via Redis.
+    // If Redis is unreachable, @fastify/rate-limit falls back to its in-memory
+    // store automatically (fail-open — degraded enforcement, not an outage).
+    redis: app.redis,
     // Don't count health/readiness/metrics against the global limit.
     allowList: (req) => {
       const base = `${app.config.API_PREFIX}/${app.config.API_VERSION}`;

@@ -13,6 +13,9 @@ export const envSchema = Type.Object({
   // Database
   DATABASE_URL: Type.String(),
 
+  // Redis (distributed rate limiting, queues)
+  REDIS_URL: Type.String({ default: 'redis://localhost:6379' }),
+
   // Authentication
   JWT_SECRET: Type.String({ minLength: 32 }),
   JWT_EXPIRES_IN: Type.String({ default: '15m' }),

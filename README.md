@@ -299,3 +299,45 @@ Further hardening and scale work is planned in the specs under
 MIT — see [LICENSE](LICENSE).
 
 Built with ❤️ using Fastify, Prisma, React, and TypeBox.
+
+---
+
+## 🔌 Circuit Breakers (outbound calls)
+
+Wrap any call to an external service (HTTP/RPC) so a failing dependency degrades
+gracefully instead of cascading. When failures exceed the threshold the circuit
+opens and calls fail fast with `CircuitOpenError` (HTTP 503) until it recovers.
+
+```ts
+import { withCircuitBreaker } from '@core/circuit-breaker.js';
+
+const data = await withCircuitBreaker(
+  'sendgrid',                        // service name (also the metric label)
+  (signal) => fetch(url, { signal }), // signal fires on timeout — pass it through
+  { timeout: 3000, errorThresholdPercentage: 50, resetTimeout: 30000 }
+);
+```
+
+- Each service name gets its own breaker (state persists across calls).
+- The `AbortSignal` cancels the underlying request when the timeout elapses.
+- State is exported to Prometheus as `circuit_breaker_state{service,state}`
+  (`closed` / `open` / `half_open`, 1 = current).
+- An open circuit throws `CircuitOpenError` (503) with no network attempt.
+
+Different services can have different tolerances — tune `timeout`,
+`errorThresholdPercentage`, and `resetTimeout` per call site.
+
+## ⚙️ Background workers
+
+Non-critical work (notifications, emails, webhooks) runs off the HTTP path via
+BullMQ. The API enqueues a job and returns immediately; a separate worker
+process consumes it.
+
+```bash
+npm run dev:api      # API (enqueues jobs)
+npm run worker --workspace @app/api   # worker (processes jobs)
+```
+
+Jobs retry 3× with exponential backoff; exhausted jobs remain in the failed set
+(dead-letter) and are logged at `error`. Queue depth is exported as
+`bullmq_jobs{queue,state}` on the worker's metrics port (`9101`).

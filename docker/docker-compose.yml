@@ -17,6 +17,21 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7.2-alpine
+    container_name: fastify_redis
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   jaeger:
     image: jaegertracing/all-in-one:1.57
     container_name: fastify_jaeger
@@ -60,3 +75,4 @@ volumes:
   postgres_data:
   prometheus_data:
   grafana_data:
+  redis_data:

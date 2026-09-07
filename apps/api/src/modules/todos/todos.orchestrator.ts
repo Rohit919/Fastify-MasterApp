@@ -1,4 +1,5 @@
 import type { Logger } from 'pino';
+import type { Queue } from 'bullmq';
 import { BaseOrchestrator, DefaultPerformanceTracker } from '@core/orchestration/index.js';
 import type { PipelineStage } from '@core/orchestration/index.js';
 import type { PrismaClient } from '@prisma/client';
@@ -14,7 +15,11 @@ export class CreateTodoOrchestrator extends BaseOrchestrator<
   Todo,
   CreateTodoInput
 > {
-  constructor(private prisma: PrismaClient, log?: Logger) {
+  constructor(
+    private prisma: PrismaClient,
+    private notificationsQueue?: Queue,
+    log?: Logger
+  ) {
     super(
       {
         name: 'CreateTodoOrchestrator',
@@ -32,6 +37,7 @@ export class CreateTodoOrchestrator extends BaseOrchestrator<
       startTime: Date.now(),
       perfTracker: new DefaultPerformanceTracker(),
       prisma: this.prisma,
+      notificationsQueue: this.notificationsQueue,
       input,
       results: {},
       errors: [],
