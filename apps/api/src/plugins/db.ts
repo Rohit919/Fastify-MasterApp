@@ -9,7 +9,8 @@ declare module 'fastify' {
   }
 }
 
-const SLOW_QUERY_THRESHOLD_MS = 500;
+// Lower threshold in dev to surface N+1 patterns early; higher in prod to avoid noise.
+const SLOW_QUERY_THRESHOLD_MS = process.env.NODE_ENV === 'development' ? 100 : 500;
 const QUERY_TIMEOUT_MS = 10_000;
 
 const dbPlugin: FastifyPluginAsync = async (fastify) => {

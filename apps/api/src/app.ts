@@ -21,6 +21,7 @@ import authRoutes from './modules/auth/auth.routes.js';
 import userRoutes from './modules/users/users.routes.js';
 import exampleRoutes from './modules/example/example.routes.js';
 import todoRoutes from './modules/todos/todos.routes.js';
+import adminRoutes from './modules/admin/admin.routes.js';
 
 export async function buildApp() {
   const app = Fastify({
@@ -104,6 +105,7 @@ export async function buildApp() {
       await fastify.register(userRoutes, { prefix: '/users' });
       await fastify.register(exampleRoutes, { prefix: '/examples' });
       await fastify.register(todoRoutes, { prefix: '/todos' });
+      await fastify.register(adminRoutes, { prefix: '/admin' });
     },
     { prefix: `${app.config.API_PREFIX}/${app.config.API_VERSION}` }
   );
