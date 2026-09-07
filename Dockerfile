@@ -1,7 +1,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 1 — deps: install production + dev deps (cached layer)
 # ─────────────────────────────────────────────────────────────────────────────
-FROM node:20-slim AS deps
+FROM node:22-slim AS deps
 WORKDIR /app
 
 # Copy workspace manifests first so the npm ci layer is cached until they change.
@@ -15,7 +15,7 @@ RUN npm ci --ignore-scripts
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 2 — builder: compile TypeScript → dist/
 # ─────────────────────────────────────────────────────────────────────────────
-FROM node:20-slim AS builder
+FROM node:22-slim AS builder
 WORKDIR /app
 
 # Re-use installed node_modules from deps stage.
@@ -37,7 +37,7 @@ RUN npx prisma generate
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 3 — prod-deps: install production-only dependencies
 # ─────────────────────────────────────────────────────────────────────────────
-FROM node:20-slim AS prod-deps
+FROM node:22-slim AS prod-deps
 WORKDIR /app
 
 COPY package.json package-lock.json ./
@@ -52,7 +52,7 @@ RUN npm ci --omit=dev --ignore-scripts
 # gcr.io/distroless/nodejs20-debian12 includes only Node.js + ca-certs.
 # The "nonroot" tag drops to UID 65532 (nobody) — no root access at runtime.
 # ─────────────────────────────────────────────────────────────────────────────
-FROM gcr.io/distroless/nodejs20-debian12:nonroot AS runtime
+FROM gcr.io/distroless/nodejs22-debian12:nonroot AS runtime
 
 # OCI standard labels.
 ARG COMMIT_SHA=unknown
