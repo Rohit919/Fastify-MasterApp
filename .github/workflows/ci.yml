@@ -54,6 +54,9 @@ jobs:
     env:
       NODE_ENV: test
       DATABASE_URL: postgresql://test:test@localhost:5432/fastify_test
+      # Prisma requires directUrl for migrations (added in Phase 2 for PgBouncer).
+      # In CI there is no PgBouncer, so directUrl == DATABASE_URL.
+      DATABASE_DIRECT_URL: postgresql://test:test@localhost:5432/fastify_test
       JWT_SECRET: ci-test-secret-that-is-at-least-32-characters-long
       METRICS_ENABLED: 'false'
       SWAGGER_ENABLED: 'false'
@@ -96,7 +99,7 @@ jobs:
       - name: Verify API build output
         run: test -f apps/api/dist/server.js
       - name: Build API Docker image
-        run: docker build -f apps/api/Dockerfile -t fastify-api:${{ github.sha }} .
+        run: docker build -t fastify-api:${{ github.sha }} .
 
   # ── Security scanning ──────────────────────────────────────────────────────
   security:
