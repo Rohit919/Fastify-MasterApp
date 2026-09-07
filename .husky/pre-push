@@ -1,0 +1,10 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Heavier gates run before pushing (not on every commit) so local pushes catch
+# what CI would fail on: types across all workspaces, plus the admin unit tests.
+echo "▶ typecheck (all workspaces)"
+npm run typecheck
+
+echo "▶ admin tests"
+npm run test:admin
