@@ -2290,3 +2290,261 @@ API decides:
 ```
 
 That separation is the foundation for keeping Fastify-MasterApp maintainable as the number of Admin features grows.
+
+---
+
+# Part II — Implemented Admin Frontend (As-Built)
+
+**Status:** Implemented (Phase 1 scope) · `apps/admin`
+
+This section documents what was actually built, how it derives from the
+open-source **Slash Admin** reference in `_Reference/slash-admin/`, and how it
+integrates with the real Fastify API. Part I above remains the aspirational
+plan; this part is the source of truth for the current code.
+
+## A. Relationship to Slash Admin (`_Reference/`)
+
+`_Reference/slash-admin/` is a **read-only reference implementation** and is
+never imported by the Admin. The production Admin (`apps/admin`) borrows Slash
+Admin's *architecture and UI patterns*, not its code:
+
+| Borrowed from Slash Admin (pattern)        | Where it lives in `apps/admin`                          |
+| ------------------------------------------ | ------------------------------------------------------- |
+| shadcn/ui token model (HSL CSS variables)  | `src/styles/globals.css`, `tailwind.config.ts`          |
+| Theme provider (light/dark/system, persist)| `src/app/providers/theme-provider.tsx`                  |
+| Feature-oriented folder structure          | `src/modules/*`, `src/components/*`, `src/layouts/*`     |
+| Sidebar + header admin shell               | `src/layouts/admin`, `src/components/layout/*`          |
+| Reusable UI primitives (Button, Card, …)   | `src/components/ui/*`                                    |
+| Data-table pattern                         | `src/components/data-table/*`                            |
+| Route-config-driven navigation             | `src/app/router/route-config.ts`                        |
+| i18n namespaces                            | `src/i18n/*`                                             |
+
+**Not** copied: Slash Admin's MSW/Faker mocks, demo pages, mock auth, and
+hardcoded sample data. The Admin talks to the real API only.
+
+## B. Technology stack
+
+React 18 · TypeScript · Vite · React Router 6 · Tailwind CSS · shadcn-style
+components (Radix primitives + CVA) · Zustand (client/UI state) · TanStack Query
+(server state) · react-hook-form + zod (forms) · i18next (i18n) · recharts
+(charts) · sonner (toasts) · lucide-react (icons).
+
+## C. Directory map
+
+```text
+apps/admin/src/
+├── app/
+│   ├── providers/            # ThemeProvider, composed AppProviders
+│   ├── router.tsx            # route tree (lazy pages, guards, layouts)
+│   ├── router/
+│   │   ├── route-config.ts   # nav + permission + breadcrumb metadata
+│   │   └── permission-route.tsx
+│   └── protected-route.tsx   # auth guard
+├── components/
+│   ├── ui/                   # shadcn-style primitives
+│   ├── data-table/           # reusable DataTable + pagination + search
+│   ├── forms/                # FormField / TextField / FieldError
+│   ├── feedback/             # Loading / EmptyState / ErrorState / ConfirmDialog
+│   ├── layout/               # sidebar, header, breadcrumbs, menus, switchers
+│   └── common/               # PageHeader
+├── layouts/
+│   ├── admin/                # authenticated shell
+│   └── auth/                 # login/reset shell
+├── modules/                  # feature slices
+│   ├── auth/ dashboard/ users/ roles/ permissions/ settings/ errors/
+├── hooks/                    # cross-feature hooks (use-url-table-state)
+├── i18n/                     # config + en locale namespaces
+├── lib/                      # api-client, errors, notify, query-client, utils
+├── stores/                   # auth.store (Zustand)
+└── styles/                   # globals.css (theme tokens)
+```
+
+Each feature slice follows: `api/` → `hooks/` → `components/` (+ `schemas.ts`,
+`stores/` where needed), so future logistics modules (shipments, drivers, …)
+drop in with the same shape and reuse the DataTable, forms, and guards unchanged.
+
+## D. API integration & the contracts package
+
+All HTTP goes through `src/lib/api-client.ts`, which uses the shared
+`@app/api-contracts` package for endpoint paths (`API_ENDPOINTS`) and typed
+contracts (`API_CONTRACTS`). Components never call `fetch` and never hardcode
+URLs. Flow:
+
+```text
+Component → feature hook (TanStack Query) → feature api service → apiClient → Fastify API
+```
+
+The client understands **both** backend envelope conventions: the legacy
+`{ success, data }` and the canonical `{ data, meta }` (used by the paginated
+users list). Errors are normalized to a typed `ApiError` carrying the stable
+`code`; `src/lib/errors.ts` maps codes → localized messages.
+
+### Endpoints actually consumed (and backend gaps)
+
+- Auth: `POST /auth/login`, `POST /auth/logout`, `POST /auth/logout-all`,
+  `POST /auth/refresh`, `POST /auth/change-password`, and the reset flow
+  `POST /auth/forgot-password` → `POST /auth/password-reset/verify` →
+  `POST /auth/password-reset/confirm`.
+- Users: `GET /users` (paginated, `page/pageSize/search/role/sortBy/sortOrder`),
+  `GET /users/me` (profile + effective roles/permissions).
+- RBAC: `GET/POST/PATCH/DELETE /admin/roles`, `PUT /admin/roles/:id/permissions`,
+  `GET /admin/permissions`, `GET/PUT /admin/users/:id/roles`.
+
+Backend gaps surfaced gracefully in the UI (no fake endpoints invented):
+- No user create/update/delete routes → the Users page lists + assigns roles
+  only; a notice explains create/edit aren't available yet.
+- No profile-update route → Profile settings are read-only with a notice.
+- No dashboard metrics API → `modules/dashboard/api/dashboard.api.ts` derives
+  headline counts from real endpoints and labels chart data as placeholder.
+
+## E. Authentication & sessions
+
+- **Login** is email + password only (the backend has no OTP on login). On
+  success the access token + user are stored in the auth store; the refresh
+  token is set by the API as an HTTP-only cookie the JS never reads.
+- **Silent refresh:** on a `401`, the api-client makes a single-flight call to
+  `POST /auth/refresh` (cookie-based), updates the access token, and retries the
+  original request once. If refresh fails, it clears the session and redirects
+  to `/login`. Concurrent 401s share one refresh call.
+- **Password reset** is the OTP flow: request code → verify code (exchanged for
+  a single-use reset token, held in an ephemeral store) → set new password.
+- **Change password / logout-everywhere** revoke all sessions server-side, so
+  the Admin clears local state and returns the user to `/login`.
+
+## F. RBAC (UX only — API is the boundary)
+
+- Effective `roles` + `permissions` come from `GET /users/me` and are synced
+  into the auth store by the admin layout.
+- `usePermissions()` exposes `can / canAny / canAll / hasRole / …`.
+- `<PermissionGate>` hides buttons/actions; the sidebar hides links the caller
+  can't use (driven by `route-config.ts`).
+- `<PermissionRoute>` guards routes and renders a 403 page on denial (waiting
+  for `/me` to settle to avoid a false 403 flash on refresh).
+- Permission identifiers (`resource.action`) are **never** translated — they're
+  stable machine keys. Only human-facing labels are localized.
+
+The backend independently enforces every permission via `requirePermission`, so
+the frontend controls are strictly a UX convenience.
+
+## G. Reusable systems
+
+- **DataTable** (`components/data-table`): server-side sorting + pagination,
+  toolbar slot (search/filters), column visibility, row actions, and
+  loading/empty/error states. One implementation powers Users, Roles, and
+  Permissions and is ready for future modules.
+- **Tables sync to the URL** via `useUrlTableState` (`?search=&role=&page=&sortBy=`)
+  for bookmarkable, refresh-safe lists.
+- **Forms**: react-hook-form + zod schemas (mirroring the backend contracts),
+  with `FieldError` resolving i18n message keys. Submit/loading/success/error
+  states are handled; server errors surface via toasts + inline messages.
+- **Feedback**: `Loading`, `EmptyState` (distinguishes "no data" vs "no
+  results"), `ErrorState` (with retry), and `ConfirmDialog` for destructive
+  actions. `notify` is the single toast entry point.
+
+## H. Theming & i18n
+
+- **Theme**: `ThemeProvider` toggles the `.dark` class on `<html>`; all colors
+  are HSL CSS variables so every surface (tables, dialogs, charts, sidebar,
+  auth) works in light/dark/system. The choice persists in `localStorage` and
+  `system` reacts live to OS changes.
+- **i18n**: `i18next` with English namespaces under `src/i18n/locales/en/`
+  (`common, nav, auth, users, roles, permissions, settings, dashboard,
+  validation`). All user-facing strings use `t()`. Adding a language is a
+  drop-in of a new locale folder.
+
+## I. Environment & security
+
+- `apps/admin/.env.example` documents `VITE_API_BASE_URL` (browser-safe only).
+  In dev it's empty and Vite proxies `/api` → `http://localhost:3000`; the
+  `/api/v1` prefix comes from the shared endpoint registry.
+- No secrets live in the frontend. `VITE_*` values are treated as public.
+- The refresh token stays in an HTTP-only cookie; only the short-lived access
+  token is held in the client.
+
+## J. Development & quality
+
+```bash
+# from repo root
+npm run dev:api        # start Fastify API on :3000
+npm run dev:admin      # start the Admin (Vite) — proxies /api to :3000
+npm run lint           # ESLint across the monorepo (flat config, 0 errors)
+
+# from apps/admin
+npm run typecheck      # tsc --noEmit           (passes)
+npm run lint           # eslint src             (0 errors)
+npm run test           # vitest run             (48 tests pass)
+npm run build          # tsc -b && vite build   (passes; routes are code-split)
+```
+
+All four gates pass: **typecheck**, **lint** (0 errors), **tests**, and
+**production build**.
+
+### Resilience & networking (post-audit hardening)
+
+- **Request timeout:** the API client wraps every `fetch` in an
+  `AbortController` timeout (`VITE_API_TIMEOUT_MS`, default 30s). A timeout
+  surfaces as a typed `TIMEOUT` `ApiError`; a transport failure as
+  `NETWORK_ERROR`. Both are localized by `mapApiError`.
+- **Error boundary:** `components/feedback/error-boundary.tsx` wraps the whole
+  app (in `main.tsx`) and the routed page area (in `AdminLayout`, keyed by
+  pathname so navigation resets a crashed page). A feature crash shows a
+  controlled fallback instead of a blank screen and never leaks a stack trace.
+- **Request ID surfacing:** `ErrorState` shows the server `requestId` (from
+  `ApiError`) when present, so an admin can quote it to support/logs. Data-table
+  and page-level error states pass it through via `getRequestId`.
+
+### Linting
+
+A single flat ESLint config lives at the repo root (`eslint.config.js`) and
+covers both apps: `@eslint/js` + `typescript-eslint` recommended, plus
+`react-hooks` and `react-refresh` for the admin. `no-undef` is disabled for TS
+(TypeScript checks it). `npm run lint` is 0 errors repo-wide (a few pre-existing
+API warnings remain and are non-blocking).
+
+### Testing
+
+Vitest + React Testing Library + jsdom, configured in `vitest.config.ts` with a
+setup file (`src/test/setup.ts`) that registers jest-dom matchers and stubs
+`matchMedia`. `src/test/test-utils.tsx` provides a `renderWithProviders` helper
+(Query + Router). Coverage of the §63 priority flows:
+
+- Permission utilities (`auth.store` can/canAny/canAll) and `mapApiError` mapping.
+- `PermissionGate` show/hide/fallback/anyOf/allOf rendering.
+- `ProtectedRoute` redirect-when-unauthenticated / render-when-authenticated.
+- `PermissionRoute` 403-on-denied, render-on-allowed, loading, ungated.
+- Login flow (success → session + navigate; invalid creds → error, no navigate;
+  client-side validation blocks submit).
+- Logout (clears session + redirects, even when the server call fails).
+- Session expiration / silent refresh in the API client (401 → refresh → retry;
+  refresh-fail → session cleared + redirect), error normalization, timeout.
+- Role assignment (`usersApi.getRoles/setRoles/list` hit the right endpoints).
+- Permission grouping utility.
+
+Run `npm run test:admin` from the repo root, or `npm test` from `apps/admin`.
+
+## K. Definition of Done (Phase 1 scope) — status
+
+- [x] Admin runs independently; `_Reference/slash-admin` untouched.
+- [x] TypeScript passes; production build succeeds.
+- [x] Login, logout, forgot/reset password, refresh, session-expiry handling.
+- [x] Unauthenticated users redirected; expired sessions handled centrally.
+- [x] RBAC: permissions checked centrally; nav/routes/actions permission-aware;
+      backend remains the authority.
+- [x] Users: list, search, role filter, sorting, pagination, role assignment
+      (create/edit/delete gracefully noted as backend-unsupported).
+- [x] Roles: list/create/edit/delete + permission assignment; system roles
+      protected in the UI.
+- [x] Permissions: read-only, grouped by resource, reusable for future modules.
+- [x] Dashboard: loads with loading/empty/error handling; metrics API-ready.
+- [x] Settings: profile (read-only), appearance (theme + language), security
+      (change password, logout everywhere).
+- [x] i18n system with complete English; permission keys language-independent.
+- [x] Themes: light/dark/system, persisted, applied across all surfaces.
+- [x] Reusable DataTable (sort/paginate/filter/search/states/responsive).
+- [x] Reusable forms with zod validation, field + server error handling.
+- [x] API client request timeout (AbortController) with typed TIMEOUT error.
+- [x] React error boundaries (app-level + routed page area).
+- [x] Server requestId surfaced in error UI for support/log correlation.
+- [x] Monorepo ESLint (flat config) — `npm run lint` passes with 0 errors.
+- [x] Automated test foundation (Vitest + RTL) covering the §63 priority flows;
+      48 tests pass.

@@ -1,84 +1,74 @@
-import { useState, type FormEvent } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useTranslation } from 'react-i18next';
 import { useLogin } from '@/modules/auth/hooks/use-login';
+import { loginSchema, type LoginForm } from '@/modules/auth/schemas';
 import { useAuthStore } from '@/stores/auth.store';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { ApiError } from '@/lib/api-client';
+import { TextField } from '@/components/forms/form-field';
+import { Spinner } from '@/components/ui/spinner';
+import { mapApiError } from '@/lib/errors';
 
 export function LoginPage() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const loginMutation = useLogin();
+  const login = useLogin();
+  const { t } = useTranslation();
 
-  if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
-  }
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginForm>({ resolver: zodResolver(loginSchema) });
 
-  const onSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    loginMutation.mutate({ email, password });
-  };
+  if (isAuthenticated) return <Navigate to="/dashboard" replace />;
 
-  const errorMessage =
-    loginMutation.error instanceof ApiError
-      ? loginMutation.error.message
-      : loginMutation.error
-        ? 'Login failed'
-        : null;
+  const onSubmit = (values: LoginForm) => login.mutate(values);
+  const errorMessage = login.error ? mapApiError(login.error, (k, f) => t(k, f)) : null;
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        fontFamily: 'system-ui, sans-serif',
-      }}
-    >
-      <form
-        onSubmit={onSubmit}
-        style={{
-          background: '#fff',
-          padding: 40,
-          borderRadius: 16,
-          width: 360,
-          boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 16,
-        }}
-      >
-        <h1 style={{ margin: 0, fontSize: 24, color: '#1e293b' }}>Admin Login</h1>
+    <div className="space-y-6">
+      <div className="space-y-1.5">
+        <h1 className="text-2xl font-semibold tracking-tight">{t('auth:login.title')}</h1>
+        <p className="text-sm text-muted-foreground">{t('auth:login.subtitle')}</p>
+      </div>
 
-        <Input
-          label="Email"
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+        <TextField
+          label={t('auth:login.email')}
           type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@example.com"
-          required
           autoComplete="email"
+          placeholder={t('auth:login.emailPlaceholder')}
+          error={errors.email?.message}
+          {...register('email')}
         />
-        <Input
-          label="Password"
+        <TextField
+          label={t('auth:login.password')}
           type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="••••••••"
-          required
           autoComplete="current-password"
+          placeholder={t('auth:login.passwordPlaceholder')}
+          error={errors.password?.message}
+          {...register('password')}
         />
 
         {errorMessage && (
-          <div style={{ color: '#b91c1c', fontSize: 13 }}>{errorMessage}</div>
+          <p className="text-sm text-destructive" role="alert">
+            {errorMessage}
+          </p>
         )}
 
-        <Button type="submit" disabled={loginMutation.isPending}>
-          {loginMutation.isPending ? 'Signing in…' : 'Sign in'}
+        <div className="flex justify-end">
+          <Link
+            to="/forgot-password"
+            className="text-sm font-medium text-primary hover:underline"
+          >
+            {t('auth:login.forgotPassword')}
+          </Link>
+        </div>
+
+        <Button type="submit" className="w-full" disabled={login.isPending}>
+          {login.isPending && <Spinner />}
+          {login.isPending ? t('auth:login.submitting') : t('auth:login.submit')}
         </Button>
       </form>
     </div>

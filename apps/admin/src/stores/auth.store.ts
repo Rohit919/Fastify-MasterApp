@@ -19,6 +19,8 @@ interface AuthState {
   roles: string[];
   permissions: string[];
   setSession: (session: { accessToken: string; user: AuthUser }) => void;
+  /** Replace only the access token (used after a silent refresh). */
+  setAccessToken: (accessToken: string) => void;
   setAuthorization: (authz: { roles: string[]; permissions: string[] }) => void;
   clearSession: () => void;
   isAuthenticated: () => boolean;
@@ -35,6 +37,7 @@ export const useAuthStore = create<AuthState>()(
       roles: [],
       permissions: [],
       setSession: ({ accessToken, user }) => set({ accessToken, user }),
+      setAccessToken: (accessToken) => set({ accessToken }),
       setAuthorization: ({ roles, permissions }) => set({ roles, permissions }),
       clearSession: () => set({ accessToken: null, user: null, roles: [], permissions: [] }),
       isAuthenticated: () => Boolean(get().accessToken),

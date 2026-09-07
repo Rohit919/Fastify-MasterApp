@@ -1,0 +1,24 @@
+{
+  "title": "Dashboard",
+  "welcome": "Welcome back, {{name}}",
+  "welcomeAnon": "Welcome back",
+  "stats": {
+    "totalUsers": "Total users",
+    "roles": "Roles",
+    "permissions": "Permissions",
+    "activeSessions": "Active session"
+  },
+  "charts": {
+    "signups": "New users (last 7 days)",
+    "activity": "Activity"
+  },
+  "recentActivity": "Recent activity",
+  "quickActions": "Quick actions",
+  "quick": {
+    "manageUsers": "Manage users",
+    "manageRoles": "Manage roles",
+    "viewPermissions": "View permissions",
+    "settings": "Open settings"
+  },
+  "devDataNotice": "Showing placeholder metrics. Connect a metrics API to display live data."
+}

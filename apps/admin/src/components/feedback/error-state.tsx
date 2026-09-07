@@ -1,7 +1,35 @@
-export function ErrorState({ message }: { message: string }) {
+import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+
+/**
+ * Inline error surface for a failed data load. When the failure carries a
+ * server `requestId`, it's shown so an admin can quote it to support/logs
+ * (correlates with the API's X-Request-Id). Never renders a stack trace.
+ */
+export function ErrorState({
+  message,
+  requestId,
+  onRetry,
+}: {
+  message: string;
+  requestId?: string;
+  onRetry?: () => void;
+}) {
   return (
-    <div style={{ padding: 24, color: '#b91c1c', background: '#fef2f2', borderRadius: 8 }}>
-      {message}
+    <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-10 text-center">
+      <AlertTriangle className="h-8 w-8 text-destructive" />
+      <p className="text-sm text-destructive">{message}</p>
+      {requestId && (
+        <p className="text-xs text-muted-foreground">
+          Request ID: <span className="font-mono">{requestId}</span>
+        </p>
+      )}
+      {onRetry && (
+        <Button variant="outline" size="sm" onClick={onRetry}>
+          <RefreshCw className="h-4 w-4" />
+          Try again
+        </Button>
+      )}
     </div>
   );
 }

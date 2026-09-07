@@ -1,0 +1,11 @@
+{
+  "title": "Permissions",
+  "subtitle": "The registry of permissions roles can grant. Grouped by resource.",
+  "columns": {
+    "key": "Permission",
+    "description": "Description"
+  },
+  "searchPlaceholder": "Search permissions",
+  "empty": "No permissions found.",
+  "resource": "Resource"
+}

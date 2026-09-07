@@ -1,41 +1,86 @@
-import { useCurrentUser } from '@/modules/users/hooks/use-current-user';
-import { Loading } from '@/components/feedback/loading';
+import { useTranslation } from 'react-i18next';
+import { Users, ShieldCheck, KeyRound, Settings, Activity, Info } from 'lucide-react';
+import { PageHeader } from '@/components/common/page-header';
+import { StatCard } from '@/modules/dashboard/components/stat-card';
+import { SignupsChart } from '@/modules/dashboard/components/signups-chart';
+import { QuickActions } from '@/modules/dashboard/components/quick-actions';
 import { ErrorState } from '@/components/feedback/error-state';
-
-function StatCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div
-      style={{
-        background: '#fff',
-        borderRadius: 10,
-        padding: 20,
-        boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-        flex: 1,
-      }}
-    >
-      <div style={{ fontSize: 13, color: '#64748b', marginBottom: 6 }}>{label}</div>
-      <div style={{ fontSize: 24, fontWeight: 700, color: '#1e293b' }}>{value}</div>
-    </div>
-  );
-}
+import { useDashboardMetrics } from '@/modules/dashboard/hooks/use-dashboard-metrics';
+import { useAuth } from '@/modules/auth/hooks/use-auth';
+import { getRequestId, mapApiError } from '@/lib/errors';
 
 export function DashboardPage() {
-  const { data: user, isLoading, error } = useCurrentUser();
+  const { t } = useTranslation();
+  const { user } = useAuth();
+  const { data, isLoading, error, refetch } = useDashboardMetrics();
 
-  if (isLoading) return <Loading label="Loading dashboard…" />;
-  if (error) return <ErrorState message={error instanceof Error ? error.message : 'Failed to load'} />;
+  if (error) {
+    return (
+      <ErrorState
+        message={mapApiError(error, (k, f) => t(k, f))}
+        requestId={getRequestId(error)}
+        onRetry={() => refetch()}
+      />
+    );
+  }
 
   return (
-    <section>
-      <h1 style={{ marginTop: 0, fontSize: 22, color: '#1e293b' }}>Dashboard</h1>
-      <p style={{ color: '#475569', marginTop: -8 }}>
-        Welcome back{user ? `, ${user.name}` : ''}.
-      </p>
-      <div style={{ display: 'flex', gap: 16, marginTop: 20 }}>
-        <StatCard label="Signed in as" value={user?.email ?? '—'} />
-        <StatCard label="Role" value={user?.role ?? '—'} />
-        <StatCard label="Session" value="Active" />
+    <>
+      <PageHeader
+        title={t('dashboard:title')}
+        description={
+          user ? t('dashboard:welcome', { name: user.name }) : t('dashboard:welcomeAnon')
+        }
+      />
+
+      {data?.usesPlaceholders && (
+        <div className="mb-6 flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm text-foreground">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+          <span>{t('dashboard:devDataNotice')}</span>
+        </div>
+      )}
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label={t('dashboard:stats.totalUsers')}
+          value={data?.totalUsers ?? '—'}
+          icon={Users}
+          loading={isLoading}
+        />
+        <StatCard
+          label={t('dashboard:stats.roles')}
+          value={data?.totalRoles ?? '—'}
+          icon={ShieldCheck}
+          loading={isLoading}
+        />
+        <StatCard
+          label={t('dashboard:stats.permissions')}
+          value={data?.totalPermissions ?? '—'}
+          icon={KeyRound}
+          loading={isLoading}
+        />
+        <StatCard
+          label={t('dashboard:stats.activeSessions')}
+          value={t('common:labels.yes')}
+          icon={Activity}
+          loading={isLoading}
+        />
       </div>
-    </section>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <SignupsChart title={t('dashboard:charts.signups')} data={data?.signups ?? []} />
+        </div>
+        <QuickActions
+          title={t('dashboard:quickActions')}
+          actions={[
+            { to: '/users', label: t('dashboard:quick.manageUsers'), icon: Users },
+            { to: '/roles', label: t('dashboard:quick.manageRoles'), icon: ShieldCheck },
+            { to: '/permissions', label: t('dashboard:quick.viewPermissions'), icon: KeyRound },
+            { to: '/settings', label: t('dashboard:quick.settings'), icon: Settings },
+          ]}
+        />
+      </div>
+    </>
   );
 }

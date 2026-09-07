@@ -1,41 +1,132 @@
-import { useCurrentUser } from '@/modules/users/hooks/use-current-user';
-import { Table } from '@/components/ui/table';
-import { Loading } from '@/components/feedback/loading';
-import { ErrorState } from '@/components/feedback/error-state';
-import { EmptyState } from '@/components/feedback/empty-state';
-import { formatDate } from '@/lib/utils';
-import type { UserProfile } from '@app/api-contracts';
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { MoreHorizontal, ShieldCheck } from 'lucide-react';
+import { PageHeader } from '@/components/common/page-header';
+import { DataTable } from '@/components/data-table';
+import type { DataTableColumn } from '@/components/data-table';
+import { SearchInput } from '@/components/data-table/search-input';
+import { Select } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { PermissionGate } from '@/modules/auth/components/permission-gate';
+import { useUrlTableState } from '@/hooks/use-url-table-state';
+import { useUsers } from '@/modules/users/hooks/use-users';
+import { AssignRolesDialog } from '@/modules/users/components/assign-roles-dialog';
+import type { UserListItem } from '@/modules/users/api/users.api';
+import { formatDateShort } from '@/lib/utils';
+import { PermissionKeys, type ListUsersQuery } from '@app/api-contracts';
 
-/**
- * Users page.
- * The API currently exposes GET /users/me. When a list endpoint
- * (GET /users) is added on the backend, swap useCurrentUser for a
- * useUsers() list hook — the Table below already renders a UserProfile[].
- */
+const ROLE_OPTIONS = [
+  { label: 'admin', value: 'admin' },
+  { label: 'support', value: 'support' },
+  { label: 'viewer', value: 'viewer' },
+  { label: 'user', value: 'user' },
+];
+
 export function UsersPage() {
-  const { data, isLoading, error } = useCurrentUser();
+  const { t } = useTranslation();
+  const { state, setPage, setPageSize, setSearch, setSort, setFilter, isFiltered } =
+    useUrlTableState({ filterKeys: ['role'] });
 
-  if (isLoading) return <Loading label="Loading users…" />;
-  if (error) return <ErrorState message={error instanceof Error ? error.message : 'Failed to load users'} />;
+  const query: Partial<ListUsersQuery> = {
+    page: state.page,
+    pageSize: state.pageSize,
+    search: state.search || undefined,
+    role: (state.filters.role as ListUsersQuery['role']) || undefined,
+    sortBy: (state.sort.sortBy as ListUsersQuery['sortBy']) || undefined,
+    sortOrder: state.sort.sortOrder,
+  };
 
-  const rows: UserProfile[] = data ? [data] : [];
-  if (rows.length === 0) return <EmptyState message="No users found." />;
+  const { data, isLoading, isFetching, error, refetch } = useUsers(query);
+
+  const [assignUser, setAssignUser] = useState<UserListItem | null>(null);
+
+  const columns: DataTableColumn<UserListItem>[] = [
+    {
+      id: 'name',
+      header: t('users:columns.name'),
+      sortKey: 'name',
+      cell: (u) => <span className="font-medium">{u.name}</span>,
+    },
+    { id: 'email', header: t('users:columns.email'), sortKey: 'email', cell: (u) => u.email },
+    {
+      id: 'role',
+      header: t('users:columns.role'),
+      cell: (u) => <Badge variant="secondary">{u.role}</Badge>,
+    },
+    {
+      id: 'createdAt',
+      header: t('users:columns.createdAt'),
+      sortKey: 'createdAt',
+      cell: (u) => formatDateShort(u.createdAt),
+    },
+  ];
 
   return (
-    <section>
-      <h1 style={{ marginTop: 0, fontSize: 22, color: '#1e293b' }}>Users</h1>
-      <div style={{ background: '#fff', borderRadius: 10, padding: 8, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-        <Table<UserProfile>
-          rowKey={(u) => u.id}
-          rows={rows}
-          columns={[
-            { header: 'Name', render: (u) => u.name },
-            { header: 'Email', render: (u) => u.email },
-            { header: 'Role', render: (u) => u.role },
-            { header: 'Created', render: (u) => formatDate(u.createdAt) },
-          ]}
-        />
-      </div>
-    </section>
+    <>
+      <PageHeader title={t('users:title')} description={t('users:subtitle')} />
+
+      <DataTable<UserListItem>
+        columns={columns}
+        rows={data?.data ?? []}
+        rowKey={(u) => u.id}
+        isLoading={isLoading}
+        isFetching={isFetching}
+        error={error}
+        onRetry={() => refetch()}
+        sort={state.sort}
+        onSortChange={setSort}
+        meta={data?.meta}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+        isFiltered={isFiltered}
+        emptyMessage={t('users:empty')}
+        toolbar={
+          <>
+            <SearchInput
+              value={state.search}
+              onChange={setSearch}
+              placeholder={t('users:searchPlaceholder')}
+            />
+            <Select
+              className="w-40"
+              value={state.filters.role ?? ''}
+              placeholder={t('users:filters.allRoles')}
+              onChange={(e) => setFilter('role', e.target.value)}
+              options={ROLE_OPTIONS}
+            />
+          </>
+        }
+        rowActions={(u) => (
+          <PermissionGate permission={PermissionKeys.UsersRolesUpdate}>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label={t('common:labels.actions')}>
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setAssignUser(u)}>
+                  <ShieldCheck className="h-4 w-4" />
+                  {t('users:actions.assignRoles')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </PermissionGate>
+        )}
+      />
+
+      <AssignRolesDialog
+        user={assignUser}
+        open={Boolean(assignUser)}
+        onOpenChange={(open) => !open && setAssignUser(null)}
+      />
+    </>
   );
 }

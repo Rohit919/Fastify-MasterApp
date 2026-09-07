@@ -20,4 +20,17 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Split heavy, rarely-changing vendor code into its own chunks so the
+        // app entry stays small and long-term-cacheable.
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'query-vendor': ['@tanstack/react-query'],
+          charts: ['recharts'],
+        },
+      },
+    },
+  },
 });

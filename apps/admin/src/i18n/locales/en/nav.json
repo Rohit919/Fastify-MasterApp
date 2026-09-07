@@ -1,0 +1,16 @@
+{
+  "dashboard": "Dashboard",
+  "users": "Users",
+  "roles": "Roles",
+  "permissions": "Permissions",
+  "settings": "Settings",
+  "profile": "Profile",
+  "appearance": "Appearance",
+  "security": "Security",
+  "preferences": "Preferences",
+  "sections": {
+    "overview": "Overview",
+    "accessControl": "Access Control",
+    "system": "System"
+  }
+}

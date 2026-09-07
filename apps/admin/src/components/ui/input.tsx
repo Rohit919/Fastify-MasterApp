@@ -1,26 +1,21 @@
-import type { InputHTMLAttributes } from 'react';
-import { cx } from '@/lib/utils';
+import * as React from 'react';
+import { cn } from '@/lib/utils';
 
-interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
-  label?: string;
-}
+export type InputProps = React.InputHTMLAttributes<HTMLInputElement>;
 
-export function Input({ label, id, className, ...props }: InputProps) {
-  return (
-    <label style={{ display: 'block' }}>
-      {label && <span style={{ display: 'block', marginBottom: 4, fontSize: 13, fontWeight: 600 }}>{label}</span>}
+export const Input = React.forwardRef<HTMLInputElement, InputProps>(
+  ({ className, type, ...props }, ref) => {
+    return (
       <input
-        id={id}
-        className={cx('admin-input', className)}
-        style={{
-          width: '100%',
-          padding: '8px 10px',
-          border: '1px solid #cbd5e1',
-          borderRadius: 6,
-          fontSize: 14,
-        }}
+        type={type}
+        ref={ref}
+        className={cn(
+          'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
+          className
+        )}
         {...props}
       />
-    </label>
-  );
-}
+    );
+  }
+);
+Input.displayName = 'Input';

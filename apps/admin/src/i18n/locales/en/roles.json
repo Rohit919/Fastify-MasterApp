@@ -1,0 +1,37 @@
+{
+  "title": "Roles",
+  "subtitle": "Authorization groups that bundle permissions",
+  "columns": {
+    "name": "Name",
+    "description": "Description",
+    "system": "System",
+    "permissions": "Permissions",
+    "actions": "Actions"
+  },
+  "create": {
+    "title": "Create role",
+    "trigger": "New role",
+    "name": "Name",
+    "namePlaceholder": "e.g. Operations Manager",
+    "description": "Description",
+    "descriptionPlaceholder": "What this role is for",
+    "permissions": "Permissions",
+    "submit": "Create role",
+    "success": "Role created"
+  },
+  "edit": {
+    "title": "Edit role",
+    "submit": "Save changes",
+    "success": "Role updated"
+  },
+  "delete": {
+    "title": "Delete role",
+    "confirm": "Delete the role \"{{name}}\"? This cannot be undone.",
+    "success": "Role deleted",
+    "systemBlocked": "System roles cannot be deleted."
+  },
+  "permissionsCount": "{{count}} permission",
+  "permissionsCount_other": "{{count}} permissions",
+  "system": "System role",
+  "empty": "No roles found."
+}

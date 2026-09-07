@@ -1,39 +1,30 @@
-import { useAuthStore } from '@/stores/auth.store';
+import { Menu } from 'lucide-react';
+import { Breadcrumbs } from '@/components/layout/breadcrumbs';
+import { ThemeSwitcher } from '@/components/layout/theme-switcher';
+import { UserMenu } from '@/components/layout/user-menu';
 import { Button } from '@/components/ui/button';
-import { logout } from '@/modules/auth/api/logout';
 
-export function Header() {
-  const user = useAuthStore((s) => s.user);
-  const clearSession = useAuthStore((s) => s.clearSession);
-
-  const handleLogout = async () => {
-    // Best-effort server-side revocation (cookie sent automatically); clear local regardless.
-    try {
-      await logout();
-    } catch {
-      // Ignore — logout is idempotent and we clear locally anyway.
-    }
-    clearSession();
-  };
-
+export function Header({ onMenuClick }: { onMenuClick: () => void }) {
   return (
-    <header
-      style={{
-        height: 56,
-        borderBottom: '1px solid #e2e8f0',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'flex-end',
-        gap: 16,
-        padding: '0 24px',
-      }}
-    >
-      <span style={{ fontSize: 14, color: '#475569' }}>
-        {user ? `${user.name} · ${user.role}` : ''}
-      </span>
-      <Button variant="secondary" onClick={handleLogout}>
-        Log out
+    <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60 md:px-6">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="md:hidden"
+        onClick={onMenuClick}
+        aria-label="Open navigation"
+      >
+        <Menu className="h-5 w-5" />
       </Button>
+
+      <div className="hidden md:block">
+        <Breadcrumbs />
+      </div>
+
+      <div className="ml-auto flex items-center gap-1">
+        <ThemeSwitcher />
+        <UserMenu />
+      </div>
     </header>
   );
 }

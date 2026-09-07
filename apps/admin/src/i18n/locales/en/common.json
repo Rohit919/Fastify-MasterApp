@@ -1,0 +1,72 @@
+{
+  "appName": "Admin",
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "create": "Create",
+    "edit": "Edit",
+    "delete": "Delete",
+    "confirm": "Confirm",
+    "close": "Close",
+    "search": "Search",
+    "filter": "Filter",
+    "clear": "Clear",
+    "retry": "Try again",
+    "refresh": "Refresh",
+    "view": "View",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "submit": "Submit",
+    "signIn": "Sign in",
+    "signOut": "Sign out"
+  },
+  "labels": {
+    "loading": "Loading…",
+    "saving": "Saving…",
+    "submitting": "Submitting…",
+    "deleting": "Deleting…",
+    "all": "All",
+    "yes": "Yes",
+    "no": "No",
+    "none": "None",
+    "status": "Status",
+    "actions": "Actions",
+    "createdAt": "Created",
+    "updatedAt": "Updated",
+    "columns": "Columns",
+    "rowsPerPage": "Rows per page",
+    "page": "Page",
+    "of": "of"
+  },
+  "empty": {
+    "title": "Nothing here yet",
+    "message": "There is no data to display.",
+    "noResultsTitle": "No matching results",
+    "noResultsMessage": "Try adjusting your search or filters."
+  },
+  "errors": {
+    "generic": "Something went wrong.",
+    "network": "Network error. Check your connection and try again.",
+    "unauthorized": "Your session has expired. Please sign in again.",
+    "forbidden": "You do not have permission to do that.",
+    "notFound": "The requested resource was not found.",
+    "conflict": "That conflicts with existing data.",
+    "validation": "Please check the form and try again.",
+    "rateLimited": "Too many attempts. Please try again later.",
+    "invalidCredentials": "Invalid email or password.",
+    "otpInvalid": "Invalid or expired code.",
+    "serviceUnavailable": "Service temporarily unavailable.",
+    "timeout": "The request timed out. Please try again."
+  },
+  "notFoundPage": {
+    "title": "Page not found",
+    "message": "The page you're looking for doesn't exist.",
+    "back": "Back to dashboard"
+  },
+  "forbiddenPage": {
+    "title": "Access denied",
+    "message": "You don't have permission to view this page.",
+    "back": "Back to dashboard"
+  }
+}

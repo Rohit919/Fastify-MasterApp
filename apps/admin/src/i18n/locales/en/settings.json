@@ -1,0 +1,34 @@
+{
+  "title": "Settings",
+  "profile": {
+    "title": "Profile",
+    "subtitle": "Your account information",
+    "name": "Name",
+    "email": "Email",
+    "role": "Role",
+    "memberSince": "Member since",
+    "readOnlyNotice": "Profile editing isn't available yet — the backend does not expose a profile-update endpoint."
+  },
+  "appearance": {
+    "title": "Appearance",
+    "subtitle": "Customize how the admin looks",
+    "theme": "Theme",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeSystem": "System",
+    "language": "Language"
+  },
+  "security": {
+    "title": "Security",
+    "subtitle": "Manage your password and sessions",
+    "changePassword": "Change password",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm new password",
+    "changePasswordSubmit": "Update password",
+    "changePasswordSuccess": "Password changed. Please sign in again.",
+    "signOutEverywhere": "Sign out everywhere",
+    "signOutEverywhereDesc": "End all active sessions on all devices.",
+    "signOutEverywhereSuccess": "Signed out of all sessions."
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "title": "Users",
+  "subtitle": "Manage user accounts and role assignments",
+  "searchPlaceholder": "Search by name or email",
+  "filters": {
+    "role": "Role",
+    "allRoles": "All roles"
+  },
+  "columns": {
+    "name": "Name",
+    "email": "Email",
+    "role": "Role",
+    "createdAt": "Created",
+    "actions": "Actions"
+  },
+  "actions": {
+    "assignRoles": "Assign roles",
+    "viewDetails": "View details"
+  },
+  "detail": {
+    "title": "User details",
+    "roles": "Assigned roles",
+    "noRoles": "No roles assigned"
+  },
+  "assignRoles": {
+    "title": "Assign roles",
+    "description": "Select the roles for {{name}}. This replaces their current roles.",
+    "save": "Save roles",
+    "success": "Roles updated successfully"
+  },
+  "empty": "No users found.",
+  "notSupported": {
+    "create": "Creating users isn't available yet — the backend does not expose a create-user endpoint.",
+    "editDelete": "Editing and deleting individual users isn't available yet. You can manage role assignments."
+  }
+}

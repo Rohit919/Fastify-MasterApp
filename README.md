@@ -83,11 +83,17 @@ apps/api/src/modules/
 - **41 integration tests** with a mock-based test harness (no DB needed)
 
 ### Admin (`apps/admin`)
-- **React + Vite + TypeScript** — fast SPA, no SSR overhead
+- **React + Vite + TypeScript** — fast SPA, no SSR overhead, route-level code-splitting
+- **Tailwind CSS + shadcn-style UI** with light/dark/system theming (derived from the Slash Admin reference)
 - **TanStack Query** for server state, **Zustand** for client/UI state
-- **React Router** with a protected-route guard
-- **Typed API client** — no raw `fetch()` in components
+- **React Router** with auth guards + permission-aware route/nav authorization
+- **Typed API client** with silent `401 → refresh → retry` handling — no raw `fetch()` in components
+- **RBAC UI** (`can()` / `<PermissionGate>`) driven by `/users/me`, with the API as the security boundary
+- **Reusable DataTable** (server-side sort/pagination/search/filter/column-visibility) + **react-hook-form + zod** forms
+- **i18n** (i18next, English) and centralized error/toast handling
+- Auth flows: login, forgot/reset password (OTP), change password, logout everywhere
 - Consumes the **same TypeBox contracts** the API validates against
+- 📖 See [`docs/ADMIN_FRONTEND.md`](docs/ADMIN_FRONTEND.md) → *Part II — Implemented Admin Frontend* for architecture, Slash Admin reference usage, auth, RBAC, tables, forms, i18n, and themes
 
 ### Shared (`packages/api-contracts`)
 - Single source of truth for request/response shapes

@@ -1,7 +1,4 @@
-import { apiClient } from '@/lib/api-client';
-import { API_ENDPOINTS } from '@app/api-contracts';
+import { authApi } from '@/modules/auth/api/auth.api';
 
-/** Logout — the refresh-token cookie is sent automatically and cleared server-side. */
-export function logout(): Promise<{ message: string }> {
-  return apiClient.post<{ message: string }>(API_ENDPOINTS.AUTH.LOGOUT, {}, true);
-}
+/** @deprecated Use `authApi.logout`. Kept as a thin re-export for callers. */
+export const logout = () => authApi.logout();
