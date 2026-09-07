@@ -101,6 +101,8 @@ export function buildMockPrisma(overrides: Partial<MockPrisma> = {}): MockPrisma
 export interface BuildTestAppOptions {
   prisma?: Partial<MockPrisma>;
   env?: Partial<Env>;
+  /** Override methods on the mock Redis client (e.g. mock ping to reject). */
+  redis?: { ping?: () => Promise<string> };
 }
 
 export async function buildTestApp(options: BuildTestAppOptions = {}) {
@@ -122,6 +124,19 @@ export async function buildTestApp(options: BuildTestAppOptions = {}) {
     fp(async (fastify) => {
       fastify.decorate('prisma', mockPrisma as unknown as PrismaClient);
     }, { name: 'prisma' })
+  );
+
+  // Inject mock redis — health route pings this; ping() always resolves 'PONG'
+  await app.register(
+    fp(async (fastify) => {
+      const mockRedis = {
+        ping: async () => 'PONG',
+        quit: async () => 'OK' as const,
+        disconnect: () => undefined,
+        ...(options.redis ?? {}),
+      };
+      fastify.decorate('redis', mockRedis as unknown as import('ioredis').Redis);
+    }, { name: 'redis' })
   );
 
   await app.register(authPlugin);
