@@ -1,14 +1,11 @@
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
-import {
-  ListExamplesResponseSchema,
-  CreateExampleBodySchema,
-  CreateExampleResponseSchema,
-} from './example.schemas.js';
+import { EXAMPLE_CONTRACTS, toFastifySchema, type CreateExampleBody } from '@app/api-contracts';
 
 /**
  * Example module — demonstrates DIRECT Prisma access for simple CRUD.
  * Contrast with the todos module which uses the Golden Orchestrator pattern.
- * Use direct access when there is no complex business logic.
+ * Consumes the shared Level 2 contracts (EXAMPLE_CONTRACTS); registration paths
+ * are relative to the `/examples` module prefix.
  */
 const exampleRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
   // ── GET / ────────────────────────────────────────────────────────────────────
@@ -16,12 +13,7 @@ const exampleRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
     '/',
     {
       preValidation: [fastify.authenticate],
-      schema: {
-        description: 'List all examples',
-        tags: ['Example'],
-        security: [{ bearerAuth: [] }],
-        response: { 200: ListExamplesResponseSchema },
-      },
+      schema: toFastifySchema(EXAMPLE_CONTRACTS.LIST),
     },
     async (_request, reply) => {
       const examples = await fastify.prisma.example.findMany({
@@ -43,16 +35,10 @@ const exampleRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
     '/',
     {
       preValidation: [fastify.authenticate],
-      schema: {
-        description: 'Create a new example',
-        tags: ['Example'],
-        security: [{ bearerAuth: [] }],
-        body: CreateExampleBodySchema,
-        response: { 201: CreateExampleResponseSchema },
-      },
+      schema: toFastifySchema(EXAMPLE_CONTRACTS.CREATE),
     },
     async (request, reply) => {
-      const { title, description } = request.body;
+      const { title, description } = request.body as CreateExampleBody;
       const example = await fastify.prisma.example.create({
         data: { title, description },
       });

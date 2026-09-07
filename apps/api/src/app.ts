@@ -2,6 +2,7 @@ import Fastify from 'fastify';
 import { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import { logger } from '@core/utils/logger.js';
 import { registerGlobalHooks, registerErrorHandlers } from '@core/hooks/index.js';
+import { ErrorCode } from '@core/errors/index.js';
 
 // ── Infrastructure plugins ──────────────────────────────────────────────────
 import envPlugin from './plugins/env.js';
@@ -10,18 +11,22 @@ import redisPlugin from './plugins/redis.js';
 import queuePlugin from './plugins/queue.js';
 import dbPlugin from './plugins/db.js';
 import authPlugin from './plugins/auth.js';
+import authorizationPlugin from './plugins/authorization.js';
 import metricsPlugin from './plugins/metrics.js';
 import swaggerPlugin from './plugins/swagger.js';
+import csrfPlugin from './plugins/csrf.js';
 
 // ── Domain modules (vertical slices) ────────────────────────────────────────
 import rootRoutes from './modules/root/root.routes.js';
 import apiIndexRoutes from './modules/api-index/api-index.routes.js';
 import healthRoutes from './modules/health/health.routes.js';
 import authRoutes from './modules/auth/auth.routes.js';
+import authRecoveryRoutes from './modules/auth/auth-recovery.routes.js';
 import userRoutes from './modules/users/users.routes.js';
 import exampleRoutes from './modules/example/example.routes.js';
 import todoRoutes from './modules/todos/todos.routes.js';
 import adminRoutes from './modules/admin/admin.routes.js';
+import rolesRoutes from './modules/roles/roles.routes.js';
 
 export async function buildApp() {
   const app = Fastify({
@@ -50,6 +55,7 @@ export async function buildApp() {
   await app.register(queuePlugin);
   await app.register(dbPlugin);
   await app.register(authPlugin);
+  await app.register(authorizationPlugin);
   await app.register(metricsPlugin);
   await app.register(swaggerPlugin);
 
@@ -58,6 +64,10 @@ export async function buildApp() {
 
   const cookiePlugin = await import('@fastify/cookie');
   await app.register(cookiePlugin.default);
+
+  // CSRF defense-in-depth for cookie-bearing state changes (SECURITY.md §30/§74).
+  // Registered after cookie parsing and CORS so it shares the origin allowlist.
+  await app.register(csrfPlugin);
 
   const helmetPlugin = await import('@fastify/helmet');
   await app.register(helmetPlugin.default, {
@@ -101,10 +111,31 @@ export async function buildApp() {
         req.url === app.config.METRICS_PATH
       );
     },
+    // Emit the canonical error envelope on throttle (ERROR_HANDLING §22) instead
+    // of the plugin's default shape. @fastify/rate-limit still sets the
+    // Retry-After header from `context.ttl`; we echo it in the body too.
+    errorResponseBuilder: (request, context) => ({
+      success: false,
+      error: {
+        code: ErrorCode.RATE_LIMITED,
+        message: 'Too many requests. Please try again later.',
+        statusCode: 429,
+        retryAfter: Math.ceil(context.ttl / 1000),
+        requestId: request.id,
+        timestamp: new Date().toISOString(),
+      },
+    }),
   });
 
   // ── Global hooks (user context in logs, etc.) ───────────────────────────────
   registerGlobalHooks(app);
+
+  // ── Error and 404 handlers ──────────────────────────────────────────────────
+  // Registered BEFORE routes so every child route context inherits the canonical
+  // error envelope. Fastify captures the error handler when a child context
+  // loads, so setting it after route registration would leave those routes on
+  // the default Fastify error shape.
+  registerErrorHandlers(app);
 
   // ── Root landing page (no API prefix) ───────────────────────────────────────
   await app.register(rootRoutes);
@@ -115,16 +146,15 @@ export async function buildApp() {
       await fastify.register(apiIndexRoutes);
       await fastify.register(healthRoutes);
       await fastify.register(authRoutes, { prefix: '/auth' });
+      await fastify.register(authRecoveryRoutes, { prefix: '/auth' });
       await fastify.register(userRoutes, { prefix: '/users' });
       await fastify.register(exampleRoutes, { prefix: '/examples' });
       await fastify.register(todoRoutes, { prefix: '/todos' });
       await fastify.register(adminRoutes, { prefix: '/admin' });
+      await fastify.register(rolesRoutes, { prefix: '/admin' });
     },
     { prefix: `${app.config.API_PREFIX}/${app.config.API_VERSION}` }
   );
-
-  // ── Error and 404 handlers ──────────────────────────────────────────────────
-  registerErrorHandlers(app);
 
   // ── Graceful shutdown log ────────────────────────────────────────────────────
   app.addHook('onClose', async () => {

@@ -22,10 +22,12 @@
     "build": "npm run build:contracts && npm run build:api && npm run build:admin",
     "test": "npm run test --workspace @app/api",
     "typecheck": "npm run typecheck --workspaces --if-present",
+    "check:api-drift": "node scripts/check-api-drift.mjs",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
+    "db:seed": "prisma db seed",
     "docker:up": "docker-compose -f docker/docker-compose.yml up -d",
     "docker:down": "docker-compose -f docker/docker-compose.yml down",
     "docker:logs": "docker-compose -f docker/docker-compose.yml logs -f",
@@ -46,5 +48,8 @@
     "*.{json,md}": [
       "prettier --write"
     ]
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   }
 }

@@ -1,35 +1,51 @@
-import { AppError } from './app-error.js';
+import { ErrorCode } from './error-codes.js';
 
+/**
+ * Canonical error envelope (API_CONVENTIONS §39 / ERROR_HANDLING §93).
+ *
+ *   { error: { code, message, statusCode, requestId?, details?, timestamp, path? } }
+ *
+ * Clients branch on `error.code` (stable, machine-readable) — never on
+ * `error.message`. `requestId` correlates the failure with server logs.
+ *
+ * This is the single serializer used by the global error handler and the
+ * not-found handler so every error path is byte-consistent.
+ */
 export interface ErrorResponse {
-  success: false;
   error: {
+    code: string;
     message: string;
-    code?: string;
     statusCode: number;
+    requestId?: string;
     details?: unknown;
     timestamp: string;
     path?: string;
-    requestId?: string;
+    retryAfter?: number;
   };
 }
 
-export function formatErrorResponse(
-  error: Error | AppError,
-  path?: string,
-  requestId?: string
-): ErrorResponse {
-  const statusCode = error instanceof AppError ? error.statusCode : 500;
-  const details = error instanceof AppError ? error.details : undefined;
+export interface ErrorEnvelopeInput {
+  code?: string;
+  message: string;
+  statusCode: number;
+  requestId?: string;
+  details?: unknown;
+  path?: string;
+  /** Seconds until retry — surfaced on 429 responses. */
+  retryAfter?: number;
+}
+
+export function formatErrorResponse(input: ErrorEnvelopeInput): ErrorResponse {
   return {
-    success: false,
     error: {
-      message: error.message,
-      code: error.name,
-      statusCode,
-      details,
+      code: input.code ?? ErrorCode.INTERNAL_ERROR,
+      message: input.message,
+      statusCode: input.statusCode,
+      ...(input.requestId !== undefined ? { requestId: input.requestId } : {}),
+      ...(input.details !== undefined ? { details: input.details } : {}),
       timestamp: new Date().toISOString(),
-      path,
-      requestId,
+      ...(input.path !== undefined ? { path: input.path } : {}),
+      ...(input.retryAfter !== undefined ? { retryAfter: input.retryAfter } : {}),
     },
   };
 }

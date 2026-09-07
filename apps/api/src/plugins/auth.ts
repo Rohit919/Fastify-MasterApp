@@ -2,6 +2,7 @@ import fp from 'fastify-plugin';
 import fastifyAuth from '@fastify/auth';
 import fastifyJWT from '@fastify/jwt';
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
+import { UnauthorizedError, ForbiddenError } from '@core/errors/index.js';
 
 // JWT payload type
 export interface JWTPayload {
@@ -42,42 +43,26 @@ const authPlugin: FastifyPluginAsync = async (fastify) => {
   // Register auth plugin
   await fastify.register(fastifyAuth);
 
-  // Authentication decorator
-  fastify.decorate('authenticate', async function (request: FastifyRequest, reply: FastifyReply) {
+  // Authentication decorator.
+  // Throws UnauthorizedError so the global error handler emits the canonical
+  // envelope with the stable UNAUTHORIZED code (API_CONVENTIONS §39).
+  fastify.decorate('authenticate', async function (request: FastifyRequest, _reply: FastifyReply) {
     try {
       await request.jwtVerify();
-    } catch (err) {
-      return reply.status(401).send({
-        success: false,
-        error: {
-          message: 'Unauthorized',
-          statusCode: 401,
-        },
-      });
+    } catch {
+      throw new UnauthorizedError();
     }
   });
 
-  // Authorization decorator (example for role-based auth)
+  // Authorization decorator (example for role-based auth).
   fastify.decorate('authorize', (roles: string[]) => {
-    return async function (request: FastifyRequest, reply: FastifyReply) {
+    return async function (request: FastifyRequest, _reply: FastifyReply) {
       if (!request.user) {
-        return reply.status(401).send({
-          success: false,
-          error: {
-            message: 'Unauthorized',
-            statusCode: 401,
-          },
-        });
+        throw new UnauthorizedError();
       }
 
       if (!roles.includes(request.user.role)) {
-        return reply.status(403).send({
-          success: false,
-          error: {
-            message: 'Forbidden',
-            statusCode: 403,
-          },
-        });
+        throw new ForbiddenError();
       }
     };
   });

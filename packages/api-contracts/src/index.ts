@@ -4,4 +4,10 @@
  */
 export * from './common.js';
 export * from './auth.js';
+export * from './auth-otp.js';
 export * from './users.js';
+export * from './rbac.js';
+export * from './todos.js';
+export * from './examples.js';
+export * from './endpoints/index.js';
+export * from './contracts/index.js';

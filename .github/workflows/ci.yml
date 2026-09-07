@@ -31,10 +31,34 @@ jobs:
         run: npx prisma generate
       - name: Typecheck all workspaces
         run: npm run typecheck
+      - name: API endpoint drift check
+        run: npm run check:api-drift
       # NOTE: eslint is not yet configured in this monorepo (removed during the
       # workspace migration). Formatting check runs when prettier is available.
       - name: Format check (non-blocking)
         run: npx prettier --check "apps/**/*.{ts,tsx}" "packages/**/*.ts" || true
+
+  # ── Prometheus rules & config validation ──────────────────────────────────
+  # Catches PromQL/label mistakes (e.g. alerts referencing a metric name the app
+  # never emits) before they silently ship as non-firing alerts.
+  prometheus:
+    name: Validate Prometheus Rules
+    runs-on: ubuntu-latest
+    env:
+      PROMTOOL_VERSION: '3.1.0'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install promtool
+        run: |
+          curl -fsSL -o prometheus.tar.gz \
+            "https://github.com/prometheus/prometheus/releases/download/v${PROMTOOL_VERSION}/prometheus-${PROMTOOL_VERSION}.linux-amd64.tar.gz"
+          tar -xzf prometheus.tar.gz
+          sudo mv "prometheus-${PROMTOOL_VERSION}.linux-amd64/promtool" /usr/local/bin/promtool
+          promtool --version
+      - name: Check alert rules
+        run: promtool check rules docker/prometheus/alert_rules.yml
+      - name: Check Prometheus config
+        run: promtool check config docker/prometheus/prometheus.yml
 
   # ── Tests against a real Postgres ──────────────────────────────────────────
   test:

@@ -9,13 +9,16 @@ import Fastify from 'fastify';
 import { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import fp from 'fastify-plugin';
 import authPlugin from '../../plugins/auth.js';
+import authorizationPlugin from '../../plugins/authorization.js';
 import { registerErrorHandlers } from '../hooks/index.js';
 import rootRoutes from '../../modules/root/root.routes.js';
 import healthRoutes from '../../modules/health/health.routes.js';
 import authRoutes from '../../modules/auth/auth.routes.js';
+import authRecoveryRoutes from '../../modules/auth/auth-recovery.routes.js';
 import userRoutes from '../../modules/users/users.routes.js';
 import todoRoutes from '../../modules/todos/todos.routes.js';
 import exampleRoutes from '../../modules/example/example.routes.js';
+import rolesRoutes from '../../modules/roles/roles.routes.js';
 import type { Env } from '../../plugins/env.js';
 import type { PrismaClient } from '@prisma/client';
 
@@ -65,6 +68,7 @@ export function buildMockPrisma(overrides: Partial<MockPrisma> = {}): MockPrisma
       findUnique: async () => null,
       create: async () => null,
       update: async () => null,
+      updateMany: async () => ({ count: 0 }),
     },
     todo: {
       findMany: async () => [],
@@ -79,6 +83,58 @@ export function buildMockPrisma(overrides: Partial<MockPrisma> = {}): MockPrisma
       findUnique: async () => null,
       update: async () => null,
       updateMany: async () => ({ count: 0 }),
+    },
+    otpChallenge: {
+      create: async () => null,
+      findFirst: async () => null,
+      update: async () => null,
+      updateMany: async () => ({ count: 0 }),
+    },
+    passwordResetToken: {
+      create: async () => null,
+      findUnique: async () => null,
+      update: async () => null,
+    },
+    // RBAC models — default to no assignments (default-deny) so tests must
+    // opt into permissions by overriding userRole.findMany.
+    userRole: {
+      findMany: async () => [],
+      findFirst: async () => null,
+      create: async () => null,
+      delete: async () => null,
+      deleteMany: async () => ({ count: 0 }),
+      count: async () => 0,
+    },
+    role: {
+      findMany: async () => [],
+      findUnique: async () => null,
+      findFirst: async () => null,
+      create: async () => null,
+      update: async () => null,
+      delete: async () => null,
+    },
+    permission: {
+      findMany: async () => [],
+      findUnique: async () => null,
+      upsert: async () => null,
+    },
+    rolePermission: {
+      findMany: async () => [],
+      create: async () => null,
+      deleteMany: async () => ({ count: 0 }),
+      createMany: async () => ({ count: 0 }),
+    },
+    auditLog: {
+      create: async () => null,
+      findMany: async () => [],
+    },
+    // $transaction: run the callback with the same mock client (interactive form).
+    $transaction: async (arg: unknown) => {
+      if (typeof arg === 'function') {
+        return (arg as (tx: unknown) => unknown)(merged);
+      }
+      // Array form: resolve each promise.
+      return Promise.all(arg as Promise<unknown>[]);
     },
   };
 
@@ -140,6 +196,7 @@ export async function buildTestApp(options: BuildTestAppOptions = {}) {
   );
 
   await app.register(authPlugin);
+  await app.register(authorizationPlugin);
 
   const sensible = await import('@fastify/sensible');
   await app.register(sensible.default);
@@ -147,20 +204,25 @@ export async function buildTestApp(options: BuildTestAppOptions = {}) {
   const cookie = await import('@fastify/cookie');
   await app.register(cookie.default);
 
+  // Error handlers must be registered BEFORE routes so the child route
+  // encapsulation contexts inherit them (Fastify resolves the handler captured
+  // when a child context loads).
+  registerErrorHandlers(app);
+
   await app.register(rootRoutes);
 
   await app.register(
     async (fastify) => {
       await fastify.register(healthRoutes);
       await fastify.register(authRoutes, { prefix: '/auth' });
+      await fastify.register(authRecoveryRoutes, { prefix: '/auth' });
       await fastify.register(userRoutes, { prefix: '/users' });
       await fastify.register(exampleRoutes, { prefix: '/examples' });
       await fastify.register(todoRoutes, { prefix: '/todos' });
+      await fastify.register(rolesRoutes, { prefix: '/admin' });
     },
     { prefix: `${env.API_PREFIX}/${env.API_VERSION}` }
   );
-
-  registerErrorHandlers(app);
 
   await app.ready();
   return app;

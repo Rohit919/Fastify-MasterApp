@@ -1,17 +1,14 @@
-import { Type } from '@sinclair/typebox';
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
-import { requirePermission, requireOwnership } from '@core/authorization/index.js';
+import { TODO_CONTRACTS, toFastifySchema, type CreateTodoBody } from '@app/api-contracts';
+import { requireRolePermission, requireOwnership } from '@core/authorization/index.js';
+import { ValidationError } from '@core/errors/index.js';
 import { TodoService } from './todos.service.js';
-import {
-  CreateTodoBodySchema,
-  CreateTodoResponseSchema,
-  ListTodosResponseSchema,
-  TodoHealthResponseSchema,
-} from './todos.schemas.js';
 
 /**
  * Todos module routes — demonstrates the Golden Orchestrator pattern.
- * Route → Service → Orchestrator → Operations (validate → create → notify)
+ * Route → Service → Orchestrator → Operations (validate → create → notify).
+ * Schemas/metadata come from the shared TODO_CONTRACTS; registration paths are
+ * relative to the `/todos` module prefix.
  */
 const todoRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
   // Pass the notifications queue when available (absent in test harness).
@@ -22,35 +19,23 @@ const todoRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
     '/',
     {
       preValidation: [fastify.authenticate],
-      schema: {
-        description: 'Create a todo using the Golden Orchestrator pattern',
-        tags: ['Todos'],
-        security: [{ bearerAuth: [] }],
-        body: CreateTodoBodySchema,
-        response: { 201: CreateTodoResponseSchema },
-      },
+      schema: toFastifySchema(TODO_CONTRACTS.CREATE),
     },
     async (request, reply) => {
+      const body = request.body as CreateTodoBody;
       const result = await todoService.createTodo(
         {
-          title: request.body.title,
-          description: request.body.description,
+          title: body.title,
+          description: body.description,
           userId: request.user.id,
         },
         request.log as unknown as import('pino').Logger
       );
 
       if (!result.success) {
-        // Not declared in the response schema on purpose — declaring a 400 schema
-        // causes Fastify to attempt serializing its own body-validation errors
-        // against it, which fails. Cast to satisfy the TypeBox reply type.
-        return reply.status(400).send({
-          success: false,
-          error: {
-            message: result.error?.message ?? 'Failed to create todo',
-            statusCode: 400,
-          },
-        } as never);
+        // Route through the global handler for the canonical error envelope
+        // with a stable code (API_CONVENTIONS §39).
+        throw new ValidationError(result.error?.message ?? 'Failed to create todo');
       }
 
       return reply.status(201).send({
@@ -73,11 +58,7 @@ const todoRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
   fastify.get(
     '/health',
     {
-      schema: {
-        description: 'Todo service health check',
-        tags: ['Todos'],
-        response: { 200: TodoHealthResponseSchema },
-      },
+      schema: toFastifySchema(TODO_CONTRACTS.HEALTH),
     },
     async (_request, reply) => {
       const health = await todoService.healthCheck();
@@ -90,12 +71,7 @@ const todoRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
     '/',
     {
       preValidation: [fastify.authenticate],
-      schema: {
-        description: 'List all todos for the authenticated user',
-        tags: ['Todos'],
-        security: [{ bearerAuth: [] }],
-        response: { 200: ListTodosResponseSchema },
-      },
+      schema: toFastifySchema(TODO_CONTRACTS.LIST),
     },
     async (request, reply) => {
       const todos = await fastify.prisma.todo.findMany({
@@ -112,14 +88,14 @@ const todoRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
   );
 
   // ── GET /:id ─── RBAC + ownership demonstration ─────────────────────────────
-  // requirePermission gates by role; requireOwnership ensures a 'user' can only
-  // read their own todo (admins bypass ownership).
+  // requireRolePermission gates by role; requireOwnership ensures a 'user' can
+  // only read their own todo (admins bypass ownership).
   fastify.get(
     '/:id',
     {
       preValidation: [fastify.authenticate],
       preHandler: [
-        requirePermission('todo', 'read'),
+        requireRolePermission('todo', 'read'),
         requireOwnership(async (req) => {
           const { id } = req.params as { id: string };
           const todo = await fastify.prisma.todo.findUnique({
@@ -129,26 +105,10 @@ const todoRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
           return todo?.userId;
         }),
       ],
-      schema: {
-        description: 'Get a single todo (owner or admin only)',
-        tags: ['Todos'],
-        security: [{ bearerAuth: [] }],
-        params: Type.Object({ id: Type.String() }),
-        response: {
-          200: Type.Object({
-            success: Type.Literal(true),
-            data: Type.Object({
-              id: Type.String(),
-              title: Type.String(),
-              description: Type.String(),
-              completed: Type.Boolean(),
-            }),
-          }),
-        },
-      },
+      schema: toFastifySchema(TODO_CONTRACTS.GET_BY_ID),
     },
     async (request, reply) => {
-      const { id } = request.params;
+      const { id } = request.params as { id: string };
       const todo = await fastify.prisma.todo.findUnique({
         where: { id },
         select: { id: true, title: true, description: true, completed: true },

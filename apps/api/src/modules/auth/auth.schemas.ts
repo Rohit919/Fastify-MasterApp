@@ -13,4 +13,13 @@ export {
   VerifyResponse as VerifyResponseSchema,
   LogoutResponse as LogoutResponseSchema,
   ErrorEnvelope as ErrorResponseSchema,
+  // OTP / password-reset / email-verification
+  VerifyEmailBody as VerifyEmailBodySchema,
+  ResendVerificationBody as ResendVerificationBodySchema,
+  ForgotPasswordBody as ForgotPasswordBodySchema,
+  VerifyResetOtpBody as VerifyResetOtpBodySchema,
+  ResetPasswordBody as ResetPasswordBodySchema,
+  ChangePasswordBody as ChangePasswordBodySchema,
+  MessageResponse as MessageResponseSchema,
+  ResetTokenResponse as ResetTokenResponseSchema,
 } from '@app/api-contracts';

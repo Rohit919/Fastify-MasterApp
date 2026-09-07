@@ -6,6 +6,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { buildTestApp, signTestToken } from '@core/testing/test-app.js';
+import { expectErrorEnvelope, expectNoSensitiveLeak } from '@core/testing/error-assertions.js';
 
 // ─── 404 not found ────────────────────────────────────────────────────────────
 
@@ -17,9 +18,9 @@ describe('404 Not Found handler', () => {
 
     expect(res.statusCode).toBe(404);
     const body = res.json();
-    expect(body.success).toBe(false);
+    // Canonical error envelope: { error: { code, message, requestId, ... } }
+    expectErrorEnvelope(body, 'NOT_FOUND');
     expect(body.error.message).toBe('Route not found');
-    expect(body.error.statusCode).toBe(404);
     expect(body.error.path).toBe('/does-not-exist');
     expect(body.error.requestId).toBeDefined();
     expect(body.error.timestamp).toBeDefined();
@@ -80,8 +81,7 @@ describe('401 Unauthorized errors', () => {
     const res = await app.inject({ method: 'GET', url: '/api/v1/auth/verify' });
 
     expect(res.statusCode).toBe(401);
-    const body = res.json();
-    expect(body.success).toBe(false);
+    expectErrorEnvelope(res.json(), 'UNAUTHORIZED');
 
     await app.close();
   });
@@ -120,8 +120,10 @@ describe('500 Internal server errors', () => {
     });
 
     expect(res.statusCode).toBe(500);
-    // Stack trace must not appear in the response body
-    expect(res.body).not.toContain('at Object.');
+    // Response must be the safe canonical envelope with no internal detail
+    // (no stack, SQL, connection strings, secrets, or filesystem paths).
+    expectErrorEnvelope(res.json(), 'INTERNAL_ERROR');
+    expectNoSensitiveLeak(res.body);
 
     await app.close();
   });

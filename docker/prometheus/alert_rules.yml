@@ -3,9 +3,11 @@ groups:
   - name: slo.rules
     rules:
       # SLO: 5xx error rate > 1% of total traffic (critical)
+      # RED-method "Errors": uses the bounded status_class label (5xx bucket),
+      # not per-code labels — see http_requests_total in plugins/metrics.ts.
       - alert: SLO5xxErrorRateCritical
         expr: |
-          sum(rate(http_requests_total{status_code=~"5.."}[5m]))
+          sum(rate(http_requests_total{status_class="5xx"}[5m]))
           /
           sum(rate(http_requests_total[5m])) > 0.01
         for: 2m
@@ -14,6 +16,22 @@ groups:
         annotations:
           summary: "SLO breach: 5xx error rate above 1%"
           description: "{{ $value | humanizePercentage }} of requests are returning 5xx over the last 5m — SLO threshold is 1%."
+          runbook_url: "https://github.com/Rohit919/Fastify-MasterApp/blob/main/docs/runbooks/high-error-rate.md"
+
+      # RED-method "Errors": sustained elevated 4xx rate (warning). A 4xx spike
+      # is distinct from 5xx (§19) — it usually signals a client/frontend bug,
+      # expired auth, bad API usage, or attack traffic rather than a server fault.
+      - alert: SLO4xxErrorRateWarn
+        expr: |
+          sum(rate(http_requests_total{status_class="4xx"}[5m]))
+          /
+          sum(rate(http_requests_total[5m])) > 0.10
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Elevated 4xx client-error rate above 10%"
+          description: "{{ $value | humanizePercentage }} of requests are returning 4xx over the last 5m — check for client bugs, expired auth, or abusive traffic."
           runbook_url: "https://github.com/Rohit919/Fastify-MasterApp/blob/main/docs/runbooks/high-error-rate.md"
 
       # SLO: P99 request latency > 500ms (warning)
@@ -80,9 +98,10 @@ groups:
   # ── BullMQ queue health ─────────────────────────────────────────────────────
   - name: queue.rules
     rules:
-      # Jobs accumulating in the waiting state (consumer falling behind)
+      # Jobs accumulating in the waiting state (consumer falling behind).
+      # Source: bullmq_jobs{queue,state} gauge emitted by workers/worker-metrics.ts.
       - alert: BullMQWaitingJobsHigh
-        expr: bullmq_job_waiting_total > 500
+        expr: bullmq_jobs{state="waiting"} > 500
         for: 5m
         labels:
           severity: warning
@@ -91,9 +110,9 @@ groups:
           description: "{{ $value }} jobs are waiting — consumer may be overwhelmed or stalled."
           runbook_url: "https://github.com/Rohit919/Fastify-MasterApp/blob/main/docs/runbooks/bullmq-backlog.md"
 
-      # Jobs piling up in the failed/dead-letter set
+      # Jobs piling up in the failed/dead-letter set.
       - alert: BullMQFailedJobsHigh
-        expr: bullmq_job_failed_total > 100
+        expr: bullmq_jobs{state="failed"} > 100
         for: 2m
         labels:
           severity: critical

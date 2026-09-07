@@ -4,6 +4,7 @@ import { ProtectedRoute } from '@/app/protected-route';
 import { LoginPage } from '@/modules/auth/components/login-page';
 import { DashboardPage } from '@/modules/dashboard/components/dashboard-page';
 import { UsersPage } from '@/modules/users/components/users-page';
+import { RolesPage } from '@/modules/roles/components/roles-page';
 import { OrdersPage } from '@/modules/orders/components/orders-page';
 
 export const router = createBrowserRouter([
@@ -16,6 +17,7 @@ export const router = createBrowserRouter([
         children: [
           { path: '/dashboard', element: <DashboardPage /> },
           { path: '/users', element: <UsersPage /> },
+          { path: '/roles', element: <RolesPage /> },
           { path: '/orders', element: <OrdersPage /> },
           { path: '/', element: <Navigate to="/dashboard" replace /> },
         ],

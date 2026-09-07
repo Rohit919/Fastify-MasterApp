@@ -24,13 +24,22 @@ model User {
   password            String
   name                String
   role                String         @default("user")
+  // Email verification — null until the user verifies their address via OTP.
+  emailVerifiedAt     DateTime?
   // Account lockout (brute-force protection)
   failedLoginAttempts Int            @default(0)
   lockedUntil         DateTime?
   lastLoginAt         DateTime?
+  passwordChangedAt   DateTime?
+  // Authorization cache/stale-token control. Bumped whenever this user's
+  // effective permissions change (role assigned/removed, role perms changed).
+  // A cached permission set carrying an older version must be re-resolved.
+  permissionVersion   Int            @default(0)
   createdAt           DateTime       @default(now())
   updatedAt           DateTime       @updatedAt
-  refreshTokens       RefreshToken[]
+  refreshTokens        RefreshToken[]
+  passwordResetTokens  PasswordResetToken[]
+  roles                UserRole[]
 
   @@index([email])
   @@map("users")
@@ -76,4 +85,142 @@ model Example {
   updatedAt   DateTime @updatedAt
 
   @@map("examples")
+}
+
+// OTP challenge — covers email_verification, password_reset, login_verification.
+// Stores a HMAC-SHA256 hash of the 6-digit code, never the code itself.
+model OtpChallenge {
+  id          String    @id @default(cuid())
+  // userId is nullable: at forgot-password time we don't yet know if the email
+  // belongs to an account (we respond generically), so we store the destination
+  // email instead, then resolve the user when the OTP is verified.
+  userId      String?
+  destination String    // normalised email address
+  purpose     OtpPurpose
+  codeHash    String    // HMAC-SHA256(code) — never plain text
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(5)
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([userId, purpose])
+  @@index([destination, purpose])
+  @@index([expiresAt])
+  @@map("otp_challenges")
+}
+
+enum OtpPurpose {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+  LOGIN_VERIFICATION
+
+  @@map("otp_purpose")
+}
+
+// Short-lived token exchanged after OTP verification to authorise a single
+// password-reset submission (separate from the OTP itself so the reset form
+// can be submitted without re-sending the code).
+model PasswordResetToken {
+  id         String    @id @default(cuid())
+  userId     String
+  tokenHash  String    @unique // SHA-256 of the opaque token
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+// ─── RBAC: Roles, Permissions, and their join tables ─────────────────────────
+// Authorization model: User → UserRole → Role → RolePermission → Permission.
+// A user's effective permissions = the union of permissions across all roles.
+// Permission keys are an application-defined registry (see api-contracts);
+// the database stores assignments, not arbitrary client-injected permissions.
+
+// A named collection of permissions. System roles (isSystem=true) are seeded
+// and protected from destructive admin operations.
+model Role {
+  id          String           @id @default(cuid())
+  // Stable, unique identifier used in seeds and privilege checks (e.g.
+  // "SUPER_ADMIN"). Display-facing but treated as an internal key.
+  name        String           @unique
+  description String?
+  // System roles are created by the seed and cannot be deleted/renamed by admins.
+  isSystem    Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  users       UserRole[]
+  permissions RolePermission[]
+
+  @@map("roles")
+}
+
+// One specific capability, keyed by the application registry (e.g. "users.read").
+// Permissions are effectively immutable after deployment; the key is the contract.
+model Permission {
+  id          String           @id @default(cuid())
+  key         String           @unique
+  description String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  roles       RolePermission[]
+
+  @@map("permissions")
+}
+
+// User ↔ Role assignment. assignedBy records the actor for auditability.
+model UserRole {
+  userId     String
+  roleId     String
+  assignedAt DateTime @default(now())
+  assignedBy String?
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+// Role ↔ Permission assignment.
+model RolePermission {
+  roleId       String
+  permissionId String
+  createdAt    DateTime   @default(now())
+
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+// ─── Audit log ────────────────────────────────────────────────────────────────
+// Immutable record of high-value authorization changes (role CRUD, role
+// assignment/removal, permission changes). Never store secrets in metadata.
+model AuditLog {
+  id         String   @id @default(cuid())
+  action     String
+  actorId    String?
+  targetType String?
+  targetId   String?
+  metadata   Json?
+  requestId  String?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([actorId])
+  @@index([action])
+  @@index([targetType, targetId])
+  @@index([createdAt])
+  @@map("audit_logs")
 }
