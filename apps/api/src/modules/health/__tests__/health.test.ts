@@ -154,7 +154,7 @@ describe('Health endpoints', () => {
     await app.close();
   });
 
-  it('GET /api/v1/ready returns 200 when DB is reachable with correct shape', async () => {
+  it('GET /api/v1/ready returns 200 when DB + Redis are reachable', async () => {
     const app = await buildTestApp({
       prisma: {
         $queryRaw: vi.fn().mockResolvedValue([{ '?column?': 1 }]),
@@ -167,14 +167,18 @@ describe('Health endpoints', () => {
     const body = res.json();
     expect(body.status).toBe('ready');
     expect(body.services.database).toBe(true);
-    // event-loop lag fields must be present
+    expect(body.services.redis).toBe(true);
+    // event-loop lag fields
     expect(body.eventLoop).toBeDefined();
     expect(body.eventLoop.lagMs).toBeTypeOf('number');
-    expect(body.eventLoop.healthy).toBe(true); // threshold is 9999ms in tests
-    // process fields must be present
-    expect(body.process).toBeDefined();
+    expect(body.eventLoop.healthy).toBe(true);
+    // process fields
     expect(body.process.activeHandles).toBeTypeOf('number');
     expect(body.process.activeRequests).toBeTypeOf('number');
+    // circuit-breaker fields
+    expect(body.circuitBreakers).toBeDefined();
+    expect(body.circuitBreakers.allClosed).toBe(true);
+    expect(body.circuitBreakers.openBreakers).toEqual([]);
 
     await app.close();
   });
@@ -194,6 +198,29 @@ describe('Health endpoints', () => {
     expect(body.services.database).toBe(false);
     expect(body.eventLoop).toBeDefined();
     expect(body.process).toBeDefined();
+    expect(body.circuitBreakers).toBeDefined();
+
+    await app.close();
+  });
+
+  it('GET /api/v1/ready returns 503 when Redis is unreachable', async () => {
+    const app = await buildTestApp({
+      prisma: {
+        $queryRaw: vi.fn().mockResolvedValue([{ '?column?': 1 }]),
+      },
+      redis: {
+        ping: vi.fn().mockRejectedValue(new Error('Redis connection refused')),
+      },
+    });
+
+    const res = await app.inject({ method: 'GET', url: '/api/v1/ready' });
+
+    expect(res.statusCode).toBe(503);
+    const body = res.json();
+    // DB is up so status is "degraded" not "not_ready"
+    expect(body.status).toBe('degraded');
+    expect(body.services.database).toBe(true);
+    expect(body.services.redis).toBe(false);
 
     await app.close();
   });
@@ -208,11 +235,9 @@ describe('Health endpoints', () => {
     const res = await app.inject({ method: 'GET', url: '/api/v1/ready' });
     const body = res.json();
 
-    // Verify the lag field is a numeric measurement (value depends on system load)
     expect(body.eventLoop.lagMs).toBeTypeOf('number');
     expect(body.eventLoop.lagMs).toBeGreaterThanOrEqual(0);
-    // With threshold=9999, healthy must be true regardless of actual lag
-    expect(body.eventLoop.healthy).toBe(true);
+    expect(body.eventLoop.healthy).toBe(true); // threshold=9999ms in tests
 
     await app.close();
   });

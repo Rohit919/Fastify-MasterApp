@@ -6,6 +6,7 @@
 # Git
 .git
 .gitignore
+.github
 
 # Dependencies (installed fresh in the builder stage)
 node_modules
@@ -22,12 +23,18 @@ packages/*/dist
 # Test / coverage
 coverage
 **/__tests__
+**/*.test.ts
+**/*.spec.ts
 .nyc_output
+vitest.config.ts
 
 # Tooling & docs not needed at build time
 .husky
 .kiro
 docs
+scripts
+plop-templates
+plopfile.js
 *.md
 !README.md
 .vscode
@@ -36,3 +43,16 @@ docs
 
 # The admin app is built/deployed separately from the API image
 apps/admin
+
+# Docker / k8s config (not needed inside image)
+docker
+k8s
+fly.toml
+railway.json
+render.yaml
+
+# Misc
+*.log
+.DS_Store
+Makefile
+setup.sh

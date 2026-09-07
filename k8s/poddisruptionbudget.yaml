@@ -1,0 +1,18 @@
+################################################################################
+# PodDisruptionBudget — ensures at least 1 API pod stays available during
+# voluntary disruptions (node drain, cluster upgrades, rolling deploys).
+################################################################################
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: fastify-api-pdb
+  namespace: fastify-app
+  labels:
+    app.kubernetes.io/name: fastify-api
+    app.kubernetes.io/component: api
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: fastify-api
+      app.kubernetes.io/component: api
