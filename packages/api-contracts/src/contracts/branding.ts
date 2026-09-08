@@ -10,6 +10,7 @@ import { AppBrandingResponse } from "../branding.js";
  * (host/session) and returns that tenant's branding — the client only renders
  * what it is given (WHITE-LABEL-ARCHITECTURE.md, security boundaries).
  */
+
 export const BRANDING_CONTRACTS = {
   GET: {
     method: HttpMethod.GET,
