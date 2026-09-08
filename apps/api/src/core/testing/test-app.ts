@@ -10,9 +10,11 @@ import { TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
 import fp from "fastify-plugin";
 import authPlugin from "../../plugins/auth.js";
 import authorizationPlugin from "../../plugins/authorization.js";
+import platformPlugin from "../../plugins/platform.js";
 import csrfPlugin from "../../plugins/csrf.js";
 import corsPlugin from "../../plugins/cors.js";
 import { registerErrorHandlers } from "../hooks/index.js";
+import { registerTenantResolutionHook } from "../tenant/index.js";
 import rootRoutes from "../../modules/root/root.routes.js";
 import healthRoutes from "../../modules/health/health.routes.js";
 import brandingRoutes from "../../modules/branding/branding.routes.js";
@@ -23,6 +25,8 @@ import todoRoutes from "../../modules/todos/todos.routes.js";
 import exampleRoutes from "../../modules/example/example.routes.js";
 import rolesRoutes from "../../modules/roles/roles.routes.js";
 import adminRoutes from "../../modules/admin/admin.routes.js";
+import tenantsRoutes from "../../modules/tenants/tenants.routes.js";
+import platformRoutes from "../../modules/platform/platform.routes.js";
 import type { Env } from "../../plugins/env.js";
 import type { PrismaClient } from "@prisma/client";
 
@@ -78,6 +82,7 @@ export function buildMockPrisma(
       create: async () => null,
       update: async () => null,
       updateMany: async () => ({ count: 0 }),
+      count: async () => 0,
     },
     todo: {
       findMany: async () => [],
@@ -136,6 +141,35 @@ export function buildMockPrisma(
     auditLog: {
       create: async () => null,
       findMany: async () => [],
+    },
+    // Multi-tenancy models. Default to no memberships/tenants so tokens carry
+    // no tenant unless a test opts in by overriding these.
+    tenant: {
+      findUnique: async () => null,
+      findFirst: async () => null,
+      findMany: async () => [],
+      create: async () => null,
+      update: async () => null,
+      upsert: async () => null,
+      count: async () => 0,
+    },
+    tenantMembership: {
+      findUnique: async () => null,
+      findFirst: async () => null,
+      findMany: async () => [],
+      create: async () => null,
+      update: async () => null,
+      upsert: async () => null,
+      updateMany: async () => ({ count: 0 }),
+    },
+    // Platform gate. Default null => no platform access (default-deny). Tests
+    // opt in by overriding platformMembership.findUnique.
+    platformMembership: {
+      findUnique: async () => null,
+      findMany: async () => [],
+      create: async () => null,
+      update: async () => null,
+      upsert: async () => null,
     },
     // $transaction: run the callback with the same mock client (interactive form).
     $transaction: async (arg: unknown) => {
@@ -231,6 +265,7 @@ export async function buildTestApp(options: BuildTestAppOptions = {}) {
 
   await app.register(authPlugin);
   await app.register(authorizationPlugin);
+  await app.register(platformPlugin);
 
   const sensible = await import("@fastify/sensible");
   await app.register(sensible.default);
@@ -242,6 +277,10 @@ export async function buildTestApp(options: BuildTestAppOptions = {}) {
   // behavior is exercised under test.
   await app.register(corsPlugin);
   await app.register(csrfPlugin);
+
+  // Tenant resolution — mirrors production so tenant context is exercised under
+  // test. Runs after auth (request.user available), before routes.
+  registerTenantResolutionHook(app);
 
   // Error handlers must be registered BEFORE routes so the child route
   // encapsulation contexts inherit them (Fastify resolves the handler captured
@@ -261,6 +300,8 @@ export async function buildTestApp(options: BuildTestAppOptions = {}) {
       await fastify.register(todoRoutes, { prefix: "/todos" });
       await fastify.register(adminRoutes, { prefix: "/admin" });
       await fastify.register(rolesRoutes, { prefix: "/admin" });
+      await fastify.register(tenantsRoutes, { prefix: "/tenants" });
+      await fastify.register(platformRoutes, { prefix: "/platform" });
     },
     { prefix: `${env.API_PREFIX}/${env.API_VERSION}` },
   );

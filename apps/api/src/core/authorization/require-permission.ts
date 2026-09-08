@@ -1,5 +1,6 @@
-import type { FastifyRequest, FastifyReply } from 'fastify';
-import type { PermissionKey } from '@app/api-contracts';
+import type { FastifyRequest, FastifyReply } from "fastify";
+import type { PermissionKey } from "@app/api-contracts";
+import { UnauthorizedError, ForbiddenError } from "@core/errors/index.js";
 
 /**
  * Permission-based route guards. These are the primary authorization boundary:
@@ -7,85 +8,90 @@ import type { PermissionKey } from '@app/api-contracts';
  * effective permissions (via fastify.authorization) and allows/denies.
  *
  * Default-deny: if the permission is not explicitly granted, access is refused.
- * Assumes fastify.authenticate ran first (request.user populated).
+ * Assumes fastify.authenticate ran first (request.user populated). Permissions
+ * are resolved for the ACTIVE tenant (request.tenant) — a tenant role only
+ * grants within its tenant; platform roles apply everywhere (see
+ * AuthorizationService.getContext).
  *
  *   preValidation: [fastify.authenticate],
  *   preHandler: [requirePermission(PermissionKeys.UsersRead)],
  *
- * The reply-directly idiom matches the existing requireOwnership/requirePermission
- * (role matrix) guards so responses stay consistent.
+ * Denials throw canonical AppError subclasses so every response flows through
+ * the global error handler and uses the standard error envelope (the previous
+ * ad-hoc reply shape is gone — MULTI-TENANT §50, API_CONVENTIONS §39).
  */
 
-function deny(reply: FastifyReply, statusCode: 401 | 403, message: string): void {
-  reply.status(statusCode).send({
-    success: false,
-    error: { message, statusCode },
-  });
+function logDenial(
+  request: FastifyRequest,
+  userId: string,
+  permission: string,
+): void {
+  request.log.warn(
+    {
+      event: "authorization.denied",
+      userId,
+      tenantId: request.tenant?.tenantId,
+      permission,
+      route: request.routeOptions?.url ?? request.url,
+      requestId: request.id,
+    },
+    "authorization denied",
+  );
 }
 
 /** Require a single permission. */
 export function requirePermission(permission: PermissionKey) {
-  return async function (request: FastifyRequest, reply: FastifyReply): Promise<void> {
-    if (!request.user?.id) return deny(reply, 401, 'Unauthorized');
+  return async function (
+    request: FastifyRequest,
+    _reply: FastifyReply,
+  ): Promise<void> {
+    if (!request.user?.id) throw new UnauthorizedError();
 
-    const ctx = await request.server.authorization.getContextForRequest(request);
+    const ctx =
+      await request.server.authorization.getContextForRequest(request);
     if (!ctx.permissions.includes(permission)) {
-      // Log the denial (no resource contents) for security observability.
-      request.log.warn(
-        {
-          event: 'authorization.denied',
-          userId: ctx.userId,
-          permission,
-          route: request.routeOptions?.url ?? request.url,
-          requestId: request.id,
-        },
-        'authorization denied'
+      logDenial(request, ctx.userId, permission);
+      throw new ForbiddenError(
+        "You do not have permission to perform this action.",
       );
-      return deny(reply, 403, 'You do not have permission to perform this action.');
     }
   };
 }
 
 /** Require ANY of the given permissions. */
 export function requireAnyPermission(permissions: PermissionKey[]) {
-  return async function (request: FastifyRequest, reply: FastifyReply): Promise<void> {
-    if (!request.user?.id) return deny(reply, 401, 'Unauthorized');
+  return async function (
+    request: FastifyRequest,
+    _reply: FastifyReply,
+  ): Promise<void> {
+    if (!request.user?.id) throw new UnauthorizedError();
 
-    const ctx = await request.server.authorization.getContextForRequest(request);
+    const ctx =
+      await request.server.authorization.getContextForRequest(request);
     if (!permissions.some((p) => ctx.permissions.includes(p))) {
-      request.log.warn(
-        {
-          event: 'authorization.denied',
-          userId: ctx.userId,
-          permission: permissions.join('|'),
-          route: request.routeOptions?.url ?? request.url,
-          requestId: request.id,
-        },
-        'authorization denied'
+      logDenial(request, ctx.userId, permissions.join("|"));
+      throw new ForbiddenError(
+        "You do not have permission to perform this action.",
       );
-      return deny(reply, 403, 'You do not have permission to perform this action.');
     }
   };
 }
 
 /** Require ALL of the given permissions. */
 export function requireAllPermissions(permissions: PermissionKey[]) {
-  return async function (request: FastifyRequest, reply: FastifyReply): Promise<void> {
-    if (!request.user?.id) return deny(reply, 401, 'Unauthorized');
+  return async function (
+    request: FastifyRequest,
+    _reply: FastifyReply,
+  ): Promise<void> {
+    if (!request.user?.id) throw new UnauthorizedError();
 
-    const ctx = await request.server.authorization.getContextForRequest(request);
+    const ctx =
+      await request.server.authorization.getContextForRequest(request);
     if (!permissions.every((p) => ctx.permissions.includes(p))) {
-      request.log.warn(
-        {
-          event: 'authorization.denied',
-          userId: ctx.userId,
-          permission: permissions.join('&'),
-          route: request.routeOptions?.url ?? request.url,
-          requestId: request.id,
-        },
-        'authorization denied'
+      logDenial(request, ctx.userId, permissions.join("&"));
+      throw new ForbiddenError(
+        "You do not have permission to perform this action.",
       );
-      return deny(reply, 403, 'You do not have permission to perform this action.');
     }
   };
 }

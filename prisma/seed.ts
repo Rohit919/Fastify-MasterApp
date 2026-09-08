@@ -20,15 +20,15 @@
  *   SEED_ADMIN_NAME='Platform Admin' \
  *   npm run db:seed
  */
-import { PrismaClient } from '@prisma/client';
-import bcrypt from 'bcryptjs';
+import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
 import {
   ALL_PERMISSION_KEYS,
   PermissionKeys,
   SystemRoles,
   type PermissionKey,
   type SystemRoleName,
-} from '../packages/api-contracts/src/index.js';
+} from "../packages/api-contracts/src/index.js";
 
 const prisma = new PrismaClient();
 
@@ -36,32 +36,52 @@ const SALT_ROUNDS = 10;
 
 // Human-readable description for each permission (documentation for admins).
 const PERMISSION_DESCRIPTIONS: Record<PermissionKey, string> = {
-  'dashboard.read': 'View the dashboard',
-  'users.read': 'View users',
-  'users.create': 'Create users',
-  'users.update': 'Update users',
-  'users.delete': 'Delete users',
-  'users.roles.read': "View a user's role assignments",
-  'users.roles.update': "Change a user's role assignments",
-  'roles.read': 'View roles',
-  'roles.create': 'Create roles',
-  'roles.update': 'Update roles and their permissions',
-  'roles.delete': 'Delete roles',
-  'permissions.read': 'View the permission registry',
-  'todos.read': 'View todos',
-  'todos.create': 'Create todos',
-  'todos.update': 'Update todos',
-  'todos.delete': 'Delete todos',
-  'todos.read_all': 'View all users\' todos',
-  'orders.read': 'View orders',
-  'orders.create': 'Create orders',
-  'orders.update': 'Update orders',
-  'orders.cancel': 'Cancel orders',
-  'orders.delete': 'Delete orders',
-  'audit.read': 'View audit logs',
-  'metrics.read': 'View operational metrics and diagnostics',
-  'settings.read': 'View settings',
-  'settings.update': 'Update settings',
+  "dashboard.read": "View the dashboard",
+  "users.read": "View users",
+  "users.create": "Create users",
+  "users.update": "Update users",
+  "users.delete": "Delete users",
+  "users.roles.read": "View a user's role assignments",
+  "users.roles.update": "Change a user's role assignments",
+  "roles.read": "View roles",
+  "roles.create": "Create roles",
+  "roles.update": "Update roles and their permissions",
+  "roles.delete": "Delete roles",
+  "permissions.read": "View the permission registry",
+  "todos.read": "View todos",
+  "todos.create": "Create todos",
+  "todos.update": "Update todos",
+  "todos.delete": "Delete todos",
+  "todos.read_all": "View all users' todos",
+  "orders.read": "View orders",
+  "orders.create": "Create orders",
+  "orders.update": "Update orders",
+  "orders.cancel": "Cancel orders",
+  "orders.delete": "Delete orders",
+  "audit.read": "View audit logs",
+  "metrics.read": "View operational metrics and diagnostics",
+  "settings.read": "View settings",
+  "settings.update": "Update settings",
+  // Platform (Super Admin) permissions
+  "platform.dashboard.view": "View the platform dashboard",
+  "platform.tenant.view": "View tenants",
+  "platform.tenant.create": "Create tenants",
+  "platform.tenant.update": "Update tenants",
+  "platform.tenant.suspend": "Suspend/reactivate tenants",
+  "platform.tenant.archive": "Archive tenants",
+  "platform.user.view": "View platform users",
+  "platform.user.create": "Create platform users",
+  "platform.user.update": "Update platform users",
+  "platform.user.suspend": "Suspend platform users",
+  "platform.role.view": "View platform roles",
+  "platform.role.create": "Create platform roles",
+  "platform.role.update": "Update platform roles",
+  "platform.permission.view": "View the platform permission registry",
+  "platform.audit.view": "View platform audit logs",
+  "platform.settings.view": "View platform settings",
+  "platform.settings.update": "Update platform settings",
+  "platform.feature-flag.view": "View feature flags",
+  "platform.feature-flag.update": "Update feature flags",
 };
 
 // ── System role definitions ──────────────────────────────────────────────────
@@ -71,11 +91,11 @@ const ROLE_DEFINITIONS: Record<
   { description: string; permissions: PermissionKey[] }
 > = {
   [SystemRoles.SuperAdmin]: {
-    description: 'Full platform access. Break-glass role — assign sparingly.',
+    description: "Full platform access. Break-glass role — assign sparingly.",
     permissions: [...ALL_PERMISSION_KEYS],
   },
   [SystemRoles.Admin]: {
-    description: 'General application administration.',
+    description: "General application administration.",
     permissions: [
       PermissionKeys.DashboardRead,
       PermissionKeys.UsersRead,
@@ -98,7 +118,7 @@ const ROLE_DEFINITIONS: Record<
     ],
   },
   [SystemRoles.Manager]: {
-    description: 'Operational access without security administration.',
+    description: "Operational access without security administration.",
     permissions: [
       PermissionKeys.DashboardRead,
       PermissionKeys.UsersRead,
@@ -109,7 +129,7 @@ const ROLE_DEFINITIONS: Record<
     ],
   },
   [SystemRoles.Support]: {
-    description: 'Read-heavy support access.',
+    description: "Read-heavy support access.",
     permissions: [
       PermissionKeys.DashboardRead,
       PermissionKeys.UsersRead,
@@ -118,7 +138,7 @@ const ROLE_DEFINITIONS: Record<
     ],
   },
   [SystemRoles.Viewer]: {
-    description: 'Read-only access.',
+    description: "Read-only access.",
     permissions: [
       PermissionKeys.DashboardRead,
       PermissionKeys.UsersRead,
@@ -146,8 +166,11 @@ async function seedRoles(permIdByKey: Map<string, string>): Promise<void> {
     SystemRoleName,
     (typeof ROLE_DEFINITIONS)[SystemRoleName],
   ][]) {
+    // System roles are platform-level (tenantId = null). Uniqueness is the
+    // composite (tenantId, name); with tenantId null this addresses the one
+    // platform role per name.
     const role = await prisma.role.upsert({
-      where: { name },
+      where: { tenantId_name: { tenantId: null, name } },
       update: { description: def.description, isSystem: true },
       create: { name, description: def.description, isSystem: true },
     });
@@ -167,7 +190,10 @@ async function seedRoles(permIdByKey: Map<string, string>): Promise<void> {
 
     if (toCreate.length > 0) {
       await prisma.rolePermission.createMany({
-        data: toCreate.map((permissionId) => ({ roleId: role.id, permissionId })),
+        data: toCreate.map((permissionId) => ({
+          roleId: role.id,
+          permissionId,
+        })),
         skipDuplicates: true,
       });
     }
@@ -176,24 +202,26 @@ async function seedRoles(permIdByKey: Map<string, string>): Promise<void> {
 }
 
 async function seedAdmin(): Promise<void> {
-  const isProd = process.env.NODE_ENV === 'production';
-  if (isProd && process.env.SEED_ALLOW_PRODUCTION !== 'true') {
+  const isProd = process.env.NODE_ENV === "production";
+  if (isProd && process.env.SEED_ALLOW_PRODUCTION !== "true") {
     throw new Error(
-      'Refusing to seed in production. Set SEED_ALLOW_PRODUCTION=true to override.'
+      "Refusing to seed in production. Set SEED_ALLOW_PRODUCTION=true to override.",
     );
   }
 
-  const email = (process.env.SEED_ADMIN_EMAIL ?? 'admin@example.local').trim().toLowerCase();
+  const email = (process.env.SEED_ADMIN_EMAIL ?? "admin@example.local")
+    .trim()
+    .toLowerCase();
   const password = process.env.SEED_ADMIN_PASSWORD;
-  const name = process.env.SEED_ADMIN_NAME ?? 'Platform Admin';
+  const name = process.env.SEED_ADMIN_NAME ?? "Platform Admin";
 
   if (!password) {
     throw new Error(
-      'SEED_ADMIN_PASSWORD is required. Provide a strong password via environment variable.'
+      "SEED_ADMIN_PASSWORD is required. Provide a strong password via environment variable.",
     );
   }
   if (password.length < 12) {
-    throw new Error('SEED_ADMIN_PASSWORD must be at least 12 characters.');
+    throw new Error("SEED_ADMIN_PASSWORD must be at least 12 characters.");
   }
 
   let admin = await prisma.user.findUnique({ where: { email } });
@@ -205,7 +233,7 @@ async function seedAdmin(): Promise<void> {
         email,
         password: hashed,
         name,
-        role: 'admin',
+        role: "admin",
         // Seeded admin is trusted — mark verified so it can log in immediately.
         emailVerifiedAt: new Date(),
       },
@@ -215,30 +243,45 @@ async function seedAdmin(): Promise<void> {
     console.log(`✓ Admin already exists: ${email} (credentials unchanged)`);
   }
 
-  // Ensure the admin holds the SUPER_ADMIN role (idempotent).
-  const superAdminRole = await prisma.role.findUnique({
-    where: { name: SystemRoles.SuperAdmin },
+  // Ensure the admin holds the SUPER_ADMIN role (idempotent). Platform role,
+  // so tenantId is null.
+  const superAdminRole = await prisma.role.findFirst({
+    where: { name: SystemRoles.SuperAdmin, tenantId: null },
   });
   if (superAdminRole) {
     await prisma.userRole.upsert({
       where: { userId_roleId: { userId: admin.id, roleId: superAdminRole.id } },
       update: {},
-      create: { userId: admin.id, roleId: superAdminRole.id, assignedBy: 'seed' },
+      create: {
+        userId: admin.id,
+        roleId: superAdminRole.id,
+        assignedBy: "seed",
+      },
     });
     console.log(`✓ Ensured ${email} has role ${SystemRoles.SuperAdmin}`);
   }
+
+  // Grant the initial admin an ACTIVE platform membership so they can use the
+  // Super Admin app / /api/v1/platform/*. Platform PERMISSIONS still come from
+  // the SUPER_ADMIN platform role above; this membership is the access gate.
+  await prisma.platformMembership.upsert({
+    where: { userId: admin.id },
+    update: { status: "ACTIVE" },
+    create: { userId: admin.id, status: "ACTIVE" },
+  });
+  console.log(`✓ Ensured ${email} has an ACTIVE platform membership`);
 }
 
 async function main(): Promise<void> {
   const permIdByKey = await seedPermissions();
   await seedRoles(permIdByKey);
   await seedAdmin();
-  console.log('✓ Seed complete');
+  console.log("✓ Seed complete");
 }
 
 main()
   .catch((err) => {
-    console.error('Seed failed:', err instanceof Error ? err.message : err);
+    console.error("Seed failed:", err instanceof Error ? err.message : err);
     process.exitCode = 1;
   })
   .finally(async () => {

@@ -206,7 +206,22 @@ const userRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
         throw new NotFoundError("User not found", "USER_NOT_FOUND");
       }
 
-      const ctx = await fastify.authorization.getContext(user.id);
+      // Effective roles/permissions are scoped to the ACTIVE tenant so the
+      // Admin's permission-aware UI reflects what the user can do in this
+      // tenant (platform roles like SUPER_ADMIN still apply everywhere).
+      const ctx = await fastify.authorization.getContext(
+        user.id,
+        request.tenant?.tenantId,
+      );
+
+      // Include the active tenant (if any) so the Admin bootstraps tenant + user
+      // + permissions in one call (MULTI-TENANT §33, §115).
+      const tenant = request.tenant
+        ? await fastify.prisma.tenant.findUnique({
+            where: { id: request.tenant.tenantId },
+            select: { id: true, name: true, slug: true, status: true },
+          })
+        : null;
 
       return reply.send({
         success: true,
@@ -214,6 +229,7 @@ const userRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
           ...serialize(user),
           roles: ctx.roles,
           permissions: ctx.permissions,
+          ...(tenant ? { tenant } : {}),
         },
       });
     },

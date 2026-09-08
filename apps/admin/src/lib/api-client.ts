@@ -1,11 +1,12 @@
-import { config } from '@/config';
-import { useAuthStore } from '@/stores/auth.store';
+import { config } from "@/config";
+import { useAuthStore } from "@/stores/auth.store";
+import { useTenantStore } from "@/stores/tenant.store";
 import {
   buildPath,
   API_ENDPOINTS,
   type ApiEndpoint,
   type ErrorEnvelope,
-} from '@app/api-contracts';
+} from "@app/api-contracts";
 
 /**
  * Central HTTP client. Never call fetch() directly from components — go through
@@ -28,15 +29,15 @@ export class ApiError extends Error {
     public readonly statusCode: number,
     public readonly requestId?: string,
     /** Stable, machine-readable error code — branch on this, never the message. */
-    public readonly code: string = 'INTERNAL_ERROR'
+    public readonly code: string = "INTERNAL_ERROR",
   ) {
     super(message);
-    this.name = 'ApiError';
+    this.name = "ApiError";
   }
 }
 
 interface RequestOptions {
-  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: unknown;
   /** Skip attaching the auth token (for login/register/refresh). */
   anonymous?: boolean;
@@ -55,22 +56,22 @@ interface RequestOptions {
 async function fetchWithTimeout(
   input: string,
   init: RequestInit,
-  timeoutMs: number
+  timeoutMs: number,
 ): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     return await fetch(input, { ...init, signal: controller.signal });
   } catch (err) {
-    if (err instanceof DOMException && err.name === 'AbortError') {
-      throw new ApiError('Request timed out', 0, undefined, 'TIMEOUT');
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw new ApiError("Request timed out", 0, undefined, "TIMEOUT");
     }
     // Network failure (DNS, offline, CORS) — normalize to a typed error.
     throw new ApiError(
-      err instanceof Error ? err.message : 'Network request failed',
+      err instanceof Error ? err.message : "Network request failed",
       0,
       undefined,
-      'NETWORK_ERROR'
+      "NETWORK_ERROR",
     );
   } finally {
     clearTimeout(timer);
@@ -78,10 +79,18 @@ async function fetchWithTimeout(
 }
 
 function buildHeaders(anonymous: boolean): Record<string, string> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
   if (!anonymous) {
     const token = useAuthStore.getState().accessToken;
     if (token) headers.Authorization = `Bearer ${token}`;
+
+    // Send the active tenant as a selection hint. The server validates it
+    // against the user's membership on every request — it is never trusted as
+    // authorization (MULTI-TENANT §7.2, §29, §30). Absent when no tenant is set.
+    const tenantId = useTenantStore.getState().activeTenantId;
+    if (tenantId) headers["X-Tenant-Id"] = tenantId;
   }
   return headers;
 }
@@ -94,7 +103,7 @@ async function parseError(res: Response, json: unknown): Promise<ApiError> {
     err?.error?.message ?? `Request failed (${res.status})`,
     res.status,
     err?.error?.requestId,
-    err?.error?.code ?? (res.status === 403 ? 'FORBIDDEN' : 'INTERNAL_ERROR')
+    err?.error?.code ?? (res.status === 403 ? "FORBIDDEN" : "INTERNAL_ERROR"),
   );
 }
 
@@ -111,16 +120,17 @@ async function refreshAccessToken(): Promise<boolean> {
       const res = await fetchWithTimeout(
         `${config.apiBaseUrl}${API_ENDPOINTS.AUTH.REFRESH}`,
         {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
         },
-        config.apiTimeoutMs
+        config.apiTimeoutMs,
       );
       if (!res.ok) return false;
-      const json = (await res.json().catch(() => null)) as
-        | { success: true; data: { accessToken: string } }
-        | null;
+      const json = (await res.json().catch(() => null)) as {
+        success: true;
+        data: { accessToken: string };
+      } | null;
       const accessToken = json?.data?.accessToken;
       if (!accessToken) return false;
       useAuthStore.getState().setAccessToken(accessToken);
@@ -138,8 +148,11 @@ async function refreshAccessToken(): Promise<boolean> {
 function handleSessionExpired(): void {
   useAuthStore.getState().clearSession();
   // Avoid redirect loops if already on an auth page.
-  if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
-    window.location.assign('/login');
+  if (
+    typeof window !== "undefined" &&
+    !window.location.pathname.startsWith("/login")
+  ) {
+    window.location.assign("/login");
   }
 }
 
@@ -147,8 +160,17 @@ function handleSessionExpired(): void {
  * Core fetch. Returns the FULL parsed body (envelope included). Higher-level
  * helpers unwrap `.data` as needed.
  */
-async function rawRequest<TBody>(path: string, options: RequestOptions = {}): Promise<TBody> {
-  const { method = 'GET', body, anonymous = false, _isRetry = false, timeoutMs } = options;
+async function rawRequest<TBody>(
+  path: string,
+  options: RequestOptions = {},
+): Promise<TBody> {
+  const {
+    method = "GET",
+    body,
+    anonymous = false,
+    _isRetry = false,
+    timeoutMs,
+  } = options;
 
   const res = await fetchWithTimeout(
     `${config.apiBaseUrl}${path}`,
@@ -156,9 +178,9 @@ async function rawRequest<TBody>(path: string, options: RequestOptions = {}): Pr
       method,
       headers: buildHeaders(anonymous),
       body: body === undefined ? undefined : JSON.stringify(body),
-      credentials: 'include',
+      credentials: "include",
     },
-    timeoutMs ?? config.apiTimeoutMs
+    timeoutMs ?? config.apiTimeoutMs,
   );
 
   const json = (await res.json().catch(() => null)) as unknown;
@@ -178,8 +200,14 @@ async function rawRequest<TBody>(path: string, options: RequestOptions = {}): Pr
 }
 
 /** Request that unwraps the legacy `{ success, data }` envelope to `data`. */
-async function request<TData>(path: string, options: RequestOptions = {}): Promise<TData> {
-  const envelope = await rawRequest<{ success?: boolean; data: TData }>(path, options);
+async function request<TData>(
+  path: string,
+  options: RequestOptions = {},
+): Promise<TData> {
+  const envelope = await rawRequest<{ success?: boolean; data: TData }>(
+    path,
+    options,
+  );
   return envelope.data;
 }
 
@@ -196,13 +224,14 @@ export interface ContractRequestArgs {
  */
 function requestContract<TResponse>(
   endpoint: ApiEndpoint,
-  args: ContractRequestArgs = {}
+  args: ContractRequestArgs = {},
 ): Promise<TResponse> {
   let path = buildPath(endpoint, args.params ?? {});
   if (args.query) {
     const search = new URLSearchParams();
     for (const [key, value] of Object.entries(args.query)) {
-      if (value !== undefined && value !== '') search.append(key, String(value));
+      if (value !== undefined && value !== "")
+        search.append(key, String(value));
     }
     const qs = search.toString();
     if (qs) path += `?${qs}`;
@@ -210,17 +239,19 @@ function requestContract<TResponse>(
   return rawRequest<TResponse>(path, {
     method: endpoint.method,
     body: args.body,
-    anonymous: endpoint.auth === 'public',
+    anonymous: endpoint.auth === "public",
   });
 }
 
 export const apiClient = {
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body?: unknown, anonymous = false) =>
-    request<T>(path, { method: 'POST', body, anonymous }),
-  put: <T>(path: string, body?: unknown) => request<T>(path, { method: 'PUT', body }),
-  patch: <T>(path: string, body?: unknown) => request<T>(path, { method: 'PATCH', body }),
-  delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+    request<T>(path, { method: "POST", body, anonymous }),
+  put: <T>(path: string, body?: unknown) =>
+    request<T>(path, { method: "PUT", body }),
+  patch: <T>(path: string, body?: unknown) =>
+    request<T>(path, { method: "PATCH", body }),
+  delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
 
   /** Raw request returning the full response envelope (no unwrap). */
   raw: rawRequest,

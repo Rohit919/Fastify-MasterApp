@@ -1,13 +1,13 @@
 // Dev helper: assign the ADMIN role to a user by email via the RBAC join table.
 // Usage: node scripts/grant-admin.mjs <email> [ROLE_NAME]
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 const email = process.argv[2];
-const roleName = process.argv[3] ?? 'ADMIN';
+const roleName = process.argv[3] ?? "ADMIN";
 
 if (!email) {
-  console.error('Usage: node scripts/grant-admin.mjs <email> [ROLE_NAME]');
+  console.error("Usage: node scripts/grant-admin.mjs <email> [ROLE_NAME]");
   process.exit(1);
 }
 
@@ -17,8 +17,10 @@ if (!user) {
   process.exit(1);
 }
 
-const role = await prisma.role.findUnique({
-  where: { name: roleName },
+// Platform-level role lookup (tenantId = null). Role names are unique per
+// tenant now, so scope to platform roles for this dev helper.
+const role = await prisma.role.findFirst({
+  where: { name: roleName, tenantId: null },
   include: { permissions: { include: { permission: true } } },
 });
 if (!role) {
@@ -28,7 +30,11 @@ if (!role) {
 
 await prisma.userRole.upsert({
   where: { userId_roleId: { userId: user.id, roleId: role.id } },
-  create: { userId: user.id, roleId: role.id, assignedBy: 'grant-admin-script' },
+  create: {
+    userId: user.id,
+    roleId: role.id,
+    assignedBy: "grant-admin-script",
+  },
   update: {},
 });
 
@@ -40,6 +46,9 @@ await prisma.user.update({
 
 const perms = role.permissions.map((rp) => rp.permission.key).sort();
 console.log(`Assigned role ${roleName} to ${email}`);
-console.log(`Effective permissions from this role (${perms.length}):`, perms.join(', '));
+console.log(
+  `Effective permissions from this role (${perms.length}):`,
+  perms.join(", "),
+);
 
 await prisma.$disconnect();

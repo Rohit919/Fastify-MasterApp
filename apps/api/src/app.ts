@@ -5,6 +5,7 @@ import {
   registerGlobalHooks,
   registerErrorHandlers,
 } from "@core/hooks/index.js";
+import { registerTenantResolutionHook } from "@core/tenant/index.js";
 import { RateLimitError } from "@core/errors/index.js";
 
 // ── Infrastructure plugins ──────────────────────────────────────────────────
@@ -15,6 +16,7 @@ import queuePlugin from "./plugins/queue.js";
 import dbPlugin from "./plugins/db.js";
 import authPlugin from "./plugins/auth.js";
 import authorizationPlugin from "./plugins/authorization.js";
+import platformPlugin from "./plugins/platform.js";
 import metricsPlugin from "./plugins/metrics.js";
 import swaggerPlugin from "./plugins/swagger.js";
 import csrfPlugin from "./plugins/csrf.js";
@@ -31,6 +33,8 @@ import todoRoutes from "./modules/todos/todos.routes.js";
 import adminRoutes from "./modules/admin/admin.routes.js";
 import rolesRoutes from "./modules/roles/roles.routes.js";
 import brandingRoutes from "./modules/branding/branding.routes.js";
+import tenantsRoutes from "./modules/tenants/tenants.routes.js";
+import platformRoutes from "./modules/platform/platform.routes.js";
 
 export async function buildApp() {
   const app = Fastify({
@@ -60,6 +64,7 @@ export async function buildApp() {
   await app.register(dbPlugin);
   await app.register(authPlugin);
   await app.register(authorizationPlugin);
+  await app.register(platformPlugin);
   await app.register(metricsPlugin);
   await app.register(swaggerPlugin);
 
@@ -133,6 +138,13 @@ export async function buildApp() {
   // ── Global hooks (user context in logs, etc.) ───────────────────────────────
   registerGlobalHooks(app);
 
+  // ── Tenant resolution ───────────────────────────────────────────────────────
+  // Resolves + validates the active tenant for authenticated requests and
+  // attaches request.tenant. Registered after auth/global hooks so request.user
+  // (and its tenantId claim) is available; before routes so per-route guards
+  // and RBAC can rely on request.tenant. (MULTI-TENANT-ARCHITECTURE §49)
+  registerTenantResolutionHook(app);
+
   // ── Error and 404 handlers ──────────────────────────────────────────────────
   // Registered BEFORE routes so every child route context inherits the canonical
   // error envelope. Fastify captures the error handler when a child context
@@ -156,6 +168,8 @@ export async function buildApp() {
       await fastify.register(todoRoutes, { prefix: "/todos" });
       await fastify.register(adminRoutes, { prefix: "/admin" });
       await fastify.register(rolesRoutes, { prefix: "/admin" });
+      await fastify.register(tenantsRoutes, { prefix: "/tenants" });
+      await fastify.register(platformRoutes, { prefix: "/platform" });
     },
     { prefix: `${app.config.API_PREFIX}/${app.config.API_VERSION}` },
   );

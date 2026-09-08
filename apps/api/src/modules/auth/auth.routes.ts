@@ -1,10 +1,24 @@
-import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
-import type { FastifyRequest, FastifyReply } from 'fastify';
-import { ValidationError, UnauthorizedError, RateLimitError, ErrorCode } from '@core/errors/index.js';
-import { AUTH_CONTRACTS, toFastifySchema } from '@app/api-contracts';
-import type { LoginBody, RegisterBody, ChangePasswordBody } from '@app/api-contracts';
-import { parseDurationMs } from '@core/utils/index.js';
-import { hashPassword, verifyPassword, needsRehash } from './operations/index.js';
+import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
+import type { FastifyRequest, FastifyReply } from "fastify";
+import {
+  ValidationError,
+  UnauthorizedError,
+  RateLimitError,
+  ErrorCode,
+} from "@core/errors/index.js";
+import { AUTH_CONTRACTS, toFastifySchema } from "@app/api-contracts";
+import type {
+  LoginBody,
+  RegisterBody,
+  ChangePasswordBody,
+} from "@app/api-contracts";
+import { parseDurationMs } from "@core/utils/index.js";
+import {
+  hashPassword,
+  verifyPassword,
+  needsRehash,
+  buildTokenPayload,
+} from "./operations/index.js";
 
 // ─── constants ────────────────────────────────────────────────────────────────
 const MAX_FAILED_ATTEMPTS = 5;
@@ -15,18 +29,23 @@ const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 min
 // preventing timing attacks that reveal whether an email is registered.
 // Must match the current hashing algorithm (Argon2id) so timings line up.
 const FAKE_HASH =
-  '$argon2id$v=19$m=19456,t=2,p=1$Z/GSeO9vB/KUbJQoEK4U0g$82zFMwbv7/pU+17fJgmv37rbuOhGwkfXmjv5Y9JRKSc';
+  "$argon2id$v=19$m=19456,t=2,p=1$Z/GSeO9vB/KUbJQoEK4U0g$82zFMwbv7/pU+17fJgmv37rbuOhGwkfXmjv5Y9JRKSc";
 
 // Refresh token cookie: HTTP-only (no JS access), SameSite=Strict (CSRF), and
 // Path-scoped to the refresh endpoint so it isn't sent on every request.
-const REFRESH_COOKIE = 'refreshToken';
-const REFRESH_COOKIE_PATH = '/api/v1/auth';
+const REFRESH_COOKIE = "refreshToken";
+const REFRESH_COOKIE_PATH = "/api/v1/auth";
 
-function setRefreshCookie(reply: FastifyReply, token: string, secure: boolean, maxAgeMs: number): void {
+function setRefreshCookie(
+  reply: FastifyReply,
+  token: string,
+  secure: boolean,
+  maxAgeMs: number,
+): void {
   reply.setCookie(REFRESH_COOKIE, token, {
     httpOnly: true,
     secure,
-    sameSite: 'strict',
+    sameSite: "strict",
     path: REFRESH_COOKIE_PATH,
     maxAge: Math.floor(maxAgeMs / 1000),
   });
@@ -43,22 +62,23 @@ async function createRefreshToken(
   const token = crypto.randomUUID();
   const tokenFamily = family ?? crypto.randomUUID(); // new login = new family
   const expiresAt = new Date(Date.now() + parseDurationMs(expiresIn));
-  await prisma.refreshToken.create({ data: { token, family: tokenFamily, userId, expiresAt } });
+  await prisma.refreshToken.create({
+    data: { token, family: tokenFamily, userId, expiresAt },
+  });
   return { token, family: tokenFamily };
 }
 
 // ─── plugin ───────────────────────────────────────────────────────────────────
 
 const authRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
-
   // ── POST /login ─────────────────────────────────────────────────────────────
   fastify.post(
-    '/login',
+    "/login",
     {
       config: {
         rateLimit: {
           max: 5,
-          timeWindow: '15 minutes',
+          timeWindow: "15 minutes",
           keyGenerator: (req: FastifyRequest) => {
             const email = (req.body as { email?: string } | undefined)?.email;
             return `login:${(email ?? req.ip).toLowerCase()}`;
@@ -79,14 +99,22 @@ const authRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
       if (!user) {
         // Timing-safe: still run bcrypt so response time matches a wrong-password path.
         await verifyPassword(password, FAKE_HASH);
-        throw new UnauthorizedError('Invalid credentials', ErrorCode.INVALID_CREDENTIALS);
+        throw new UnauthorizedError(
+          "Invalid credentials",
+          ErrorCode.INVALID_CREDENTIALS,
+        );
       }
 
       // Check lockout BEFORE bcrypt (saves the expensive compare on locked accounts).
       // Emits the canonical envelope + Retry-After via the global handler.
       if (user.lockedUntil && user.lockedUntil > new Date()) {
-        const retryAfter = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 1000);
-        throw new RateLimitError('Account temporarily locked. Try again later.', retryAfter);
+        const retryAfter = Math.ceil(
+          (user.lockedUntil.getTime() - Date.now()) / 1000,
+        );
+        throw new RateLimitError(
+          "Account temporarily locked. Try again later.",
+          retryAfter,
+        );
       }
 
       const isValid = await verifyPassword(password, user.password);
@@ -99,11 +127,16 @@ const authRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
           where: { id: user.id },
           data: {
             failedLoginAttempts: newAttempts,
-            ...(shouldLock ? { lockedUntil: new Date(Date.now() + LOCKOUT_DURATION_MS) } : {}),
+            ...(shouldLock
+              ? { lockedUntil: new Date(Date.now() + LOCKOUT_DURATION_MS) }
+              : {}),
           },
         });
 
-        throw new UnauthorizedError('Invalid credentials', ErrorCode.INVALID_CREDENTIALS);
+        throw new UnauthorizedError(
+          "Invalid credentials",
+          ErrorCode.INVALID_CREDENTIALS,
+        );
       }
 
       // Success — reset lockout counters. Transparently upgrade legacy/weaker
@@ -122,7 +155,10 @@ const authRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
         },
       });
 
-      const accessToken = fastify.jwt.sign({ id: user.id, email: user.email, role: user.role });
+      // Resolve the active tenant + permissionVersion into the token payload.
+      const accessToken = fastify.jwt.sign(
+        await buildTokenPayload(fastify.prisma, user),
+      );
       const { token: refreshToken } = await createRefreshToken(
         fastify.prisma,
         user.id,
@@ -134,27 +170,32 @@ const authRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
         reply,
         refreshToken,
         fastify.config.HTTPS_ONLY,
-        parseDurationMs(fastify.config.REFRESH_TOKEN_EXPIRES_IN)
+        parseDurationMs(fastify.config.REFRESH_TOKEN_EXPIRES_IN),
       );
 
       return reply.send({
         success: true,
         data: {
           accessToken,
-          user: { id: user.id, email: user.email, name: user.name, role: user.role },
+          user: {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+          },
         },
       });
-    }
+    },
   );
 
   // ── POST /register ───────────────────────────────────────────────────────────
   fastify.post(
-    '/register',
+    "/register",
     {
       config: {
         rateLimit: {
           max: 3,
-          timeWindow: '1 hour',
+          timeWindow: "1 hour",
           keyGenerator: (req: FastifyRequest) => `register:${req.ip}`,
         },
       },
@@ -163,15 +204,21 @@ const authRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
     async (request, reply) => {
       const { email, password, name } = request.body as RegisterBody;
 
-      const existing = await fastify.prisma.user.findUnique({ where: { email } });
-      if (existing) throw new ValidationError('Email already registered');
+      const existing = await fastify.prisma.user.findUnique({
+        where: { email },
+      });
+      if (existing) throw new ValidationError("Email already registered");
 
       const hashedPassword = await hashPassword(password);
       const user = await fastify.prisma.user.create({
-        data: { email, password: hashedPassword, name, role: 'user' },
+        data: { email, password: hashedPassword, name, role: "user" },
       });
 
-      const accessToken = fastify.jwt.sign({ id: user.id, email: user.email, role: user.role });
+      // A freshly registered user has no membership yet, so the token carries
+      // no tenant until they are invited/provisioned (MULTI-TENANT §128-130).
+      const accessToken = fastify.jwt.sign(
+        await buildTokenPayload(fastify.prisma, user),
+      );
       const { token: refreshToken } = await createRefreshToken(
         fastify.prisma,
         user.id,
@@ -182,27 +229,32 @@ const authRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
         reply,
         refreshToken,
         fastify.config.HTTPS_ONLY,
-        parseDurationMs(fastify.config.REFRESH_TOKEN_EXPIRES_IN)
+        parseDurationMs(fastify.config.REFRESH_TOKEN_EXPIRES_IN),
       );
 
       return reply.status(201).send({
         success: true,
         data: {
           accessToken,
-          user: { id: user.id, email: user.email, name: user.name, role: user.role },
+          user: {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+          },
         },
       });
-    }
+    },
   );
 
   // ── POST /refresh ────────────────────────────────────────────────────────────
   fastify.post(
-    '/refresh',
+    "/refresh",
     {
       config: {
         rateLimit: {
           max: 10,
-          timeWindow: '1 minute',
+          timeWindow: "1 minute",
           keyGenerator: (req: FastifyRequest) => {
             const rt = req.cookies?.[REFRESH_COOKIE];
             return `refresh:${rt?.slice(0, 8) ?? req.ip}`;
@@ -216,7 +268,10 @@ const authRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
       const refreshToken = request.cookies?.[REFRESH_COOKIE];
 
       if (!refreshToken) {
-        throw new UnauthorizedError('Missing refresh token', ErrorCode.TOKEN_MISSING);
+        throw new UnauthorizedError(
+          "Missing refresh token",
+          ErrorCode.TOKEN_MISSING,
+        );
       }
 
       const stored = await fastify.prisma.refreshToken.findUnique({
@@ -225,7 +280,10 @@ const authRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
       });
 
       if (!stored) {
-        throw new UnauthorizedError('Invalid refresh token', ErrorCode.TOKEN_INVALID);
+        throw new UnauthorizedError(
+          "Invalid refresh token",
+          ErrorCode.TOKEN_INVALID,
+        );
       }
 
       // ── Stolen token detection ────────────────────────────────────────────
@@ -239,16 +297,19 @@ const authRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
         });
         fastify.log.warn(
           { userId: stored.userId, family: stored.family },
-          'Refresh token reuse detected — session family revoked'
+          "Refresh token reuse detected — session family revoked",
         );
         throw new UnauthorizedError(
-          'Session invalidated due to suspicious activity. Please log in again.',
-          ErrorCode.TOKEN_REVOKED
+          "Session invalidated due to suspicious activity. Please log in again.",
+          ErrorCode.TOKEN_REVOKED,
         );
       }
 
       if (stored.expiresAt < new Date()) {
-        throw new UnauthorizedError('Refresh token expired', ErrorCode.TOKEN_EXPIRED);
+        throw new UnauthorizedError(
+          "Refresh token expired",
+          ErrorCode.TOKEN_EXPIRED,
+        );
       }
 
       // Revoke current token and issue a new one in the SAME family.
@@ -258,7 +319,12 @@ const authRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
       });
 
       const { user } = stored;
-      const newAccessToken = fastify.jwt.sign({ id: user.id, email: user.email, role: user.role });
+      // Rebuild the payload on refresh: re-reads the current permissionVersion
+      // (so a refresh picks up permission changes) and re-resolves the active
+      // tenant (dropping it if the membership/tenant is no longer ACTIVE).
+      const newAccessToken = fastify.jwt.sign(
+        await buildTokenPayload(fastify.prisma, user),
+      );
       const { token: newRefreshToken } = await createRefreshToken(
         fastify.prisma,
         user.id,
@@ -270,19 +336,19 @@ const authRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
         reply,
         newRefreshToken,
         fastify.config.HTTPS_ONLY,
-        parseDurationMs(fastify.config.REFRESH_TOKEN_EXPIRES_IN)
+        parseDurationMs(fastify.config.REFRESH_TOKEN_EXPIRES_IN),
       );
 
       return reply.send({
         success: true,
         data: { accessToken: newAccessToken },
       });
-    }
+    },
   );
 
   // ── POST /logout ─────────────────────────────────────────────────────────────
   fastify.post(
-    '/logout',
+    "/logout",
     {
       schema: toFastifySchema(AUTH_CONTRACTS.LOGOUT, { omitBody: true }),
     },
@@ -295,26 +361,29 @@ const authRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
         });
       }
       reply.clearCookie(REFRESH_COOKIE, { path: REFRESH_COOKIE_PATH });
-      return reply.send({ success: true, data: { message: 'Logged out successfully' } });
-    }
+      return reply.send({
+        success: true,
+        data: { message: "Logged out successfully" },
+      });
+    },
   );
 
   // ── GET /verify ──────────────────────────────────────────────────────────────
   fastify.get(
-    '/verify',
+    "/verify",
     {
       preValidation: [fastify.authenticate],
       schema: toFastifySchema(AUTH_CONTRACTS.VERIFY),
     },
     async (request, reply) => {
       return reply.send({ success: true, data: { user: request.user } });
-    }
+    },
   );
 
   // ── POST /logout-all ───────────────────────────────────────────────────────
   // Revoke every active session for the authenticated user (log out everywhere).
   fastify.post(
-    '/logout-all',
+    "/logout-all",
     {
       preValidation: [fastify.authenticate],
       schema: toFastifySchema(AUTH_CONTRACTS.LOGOUT_ALL, { omitBody: true }),
@@ -325,34 +394,41 @@ const authRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
         data: { revokedAt: new Date() },
       });
       reply.clearCookie(REFRESH_COOKIE, { path: REFRESH_COOKIE_PATH });
-      return reply.send({ success: true, data: { message: 'Logged out of all sessions' } });
-    }
+      return reply.send({
+        success: true,
+        data: { message: "Logged out of all sessions" },
+      });
+    },
   );
 
   // ── POST /change-password ──────────────────────────────────────────────────
   // Authenticated password change: verify current password, set new one, and
   // revoke all other sessions (keeps the current session's cookie cleared too).
   fastify.post(
-    '/change-password',
+    "/change-password",
     {
       preValidation: [fastify.authenticate],
       config: {
         rateLimit: {
           max: 5,
-          timeWindow: '15 minutes',
-          keyGenerator: (req: FastifyRequest) => `change-password:${req.user?.id ?? req.ip}`,
+          timeWindow: "15 minutes",
+          keyGenerator: (req: FastifyRequest) =>
+            `change-password:${req.user?.id ?? req.ip}`,
         },
       },
       schema: toFastifySchema(AUTH_CONTRACTS.CHANGE_PASSWORD),
     },
     async (request, reply) => {
-      const { currentPassword, newPassword } = request.body as ChangePasswordBody;
+      const { currentPassword, newPassword } =
+        request.body as ChangePasswordBody;
 
-      const user = await fastify.prisma.user.findUnique({ where: { id: request.user.id } });
-      if (!user) throw new UnauthorizedError('User not found');
+      const user = await fastify.prisma.user.findUnique({
+        where: { id: request.user.id },
+      });
+      if (!user) throw new UnauthorizedError("User not found");
 
       const valid = await verifyPassword(currentPassword, user.password);
-      if (!valid) throw new UnauthorizedError('Current password is incorrect');
+      if (!valid) throw new UnauthorizedError("Current password is incorrect");
 
       const hashed = await hashPassword(newPassword);
       await fastify.prisma.user.update({
@@ -367,13 +443,13 @@ const authRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
       });
       reply.clearCookie(REFRESH_COOKIE, { path: REFRESH_COOKIE_PATH });
 
-      fastify.log.info({ userId: user.id }, 'auth.password_changed');
+      fastify.log.info({ userId: user.id }, "auth.password_changed");
 
       return reply.send({
         success: true,
-        data: { message: 'Password changed. Please log in again.' },
+        data: { message: "Password changed. Please log in again." },
       });
-    }
+    },
   );
 };
 

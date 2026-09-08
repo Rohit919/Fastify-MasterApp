@@ -23,6 +23,8 @@ export { TODO_ENDPOINTS } from "./todos.js";
 export { EXAMPLE_ENDPOINTS } from "./examples.js";
 export { ORDER_ENDPOINTS } from "./orders.js";
 export { BRANDING_ENDPOINTS } from "./branding.js";
+export { TENANT_ENDPOINTS, TENANT_ROUTES } from "./tenants.js";
+export { PLATFORM_ENDPOINTS, PLATFORM_ROUTES } from "./platform.js";
 
 import { AUTH_ENDPOINTS } from "./auth.js";
 import { USER_ENDPOINTS } from "./users.js";
@@ -37,6 +39,8 @@ import { TODO_ENDPOINTS } from "./todos.js";
 import { EXAMPLE_ENDPOINTS } from "./examples.js";
 import { ORDER_ENDPOINTS } from "./orders.js";
 import { BRANDING_ENDPOINTS } from "./branding.js";
+import { TENANT_ENDPOINTS } from "./tenants.js";
+import { PLATFORM_ENDPOINTS } from "./platform.js";
 
 /** Aggregate registry — the public entry point consumers should use. */
 export const API_ENDPOINTS = {
@@ -51,4 +55,6 @@ export const API_ENDPOINTS = {
   EXAMPLES: EXAMPLE_ENDPOINTS,
   ORDERS: ORDER_ENDPOINTS,
   BRANDING: BRANDING_ENDPOINTS,
+  TENANTS: TENANT_ENDPOINTS,
+  PLATFORM: PLATFORM_ENDPOINTS,
 } as const;

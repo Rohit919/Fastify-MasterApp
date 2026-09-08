@@ -5,6 +5,7 @@ import { Header } from "@/components/layout/header";
 import { CommandPalette } from "@/components/layout/command-palette";
 import { ErrorBoundary } from "@/components/feedback/error-boundary";
 import { useCurrentUser } from "@/modules/users/hooks/use-current-user";
+import { useTenants } from "@/modules/tenants/hooks/use-tenants";
 
 /**
  * Authenticated app shell — sidebar + header + routed page content.
@@ -17,8 +18,10 @@ export function AdminLayout() {
   const [commandOpen, setCommandOpen] = useState(false);
   const location = useLocation();
 
-  // Fetch + sync effective permissions into the auth store.
+  // Fetch + sync effective permissions (and active tenant) into the stores.
   useCurrentUser();
+  // Load the user's tenants so the switcher can render (multi-tenant users).
+  useTenants();
 
   return (
     <div className="flex min-h-screen bg-muted/30">

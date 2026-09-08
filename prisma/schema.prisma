@@ -17,6 +17,98 @@ datasource db {
 
 // Add models below
 
+// ─── Multi-tenancy: Tenant + Membership ──────────────────────────────────────
+// A Tenant is an independent customer organization. A single User identity may
+// belong to many Tenants via TenantMembership. Tenant isolation is a security
+// boundary enforced server-side — see docs/super-admin/MULTI-TENANT-ARCHITECTURE.md.
+//
+// Ownership classification:
+//   PLATFORM (no tenantId):  User, RefreshToken, OtpChallenge, PasswordResetToken,
+//                            Permission, and platform/system Roles (tenantId null).
+//   TENANT   (tenantId set): TenantMembership, tenant Roles, UserRole, AuditLog, Todo.
+model Tenant {
+  id        String       @id @default(cuid())
+  // Human-facing organization name.
+  name      String
+  // Stable, unique, URL-safe identifier (e.g. "acme-logistics"). Distinct from
+  // any future custom domain (see MULTI-TENANT-ARCHITECTURE §133).
+  slug      String       @unique
+  status    TenantStatus @default(TRIAL)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  memberships TenantMembership[]
+  roles       Role[]
+  userRoles   UserRole[]
+
+  @@index([status])
+  @@map("tenants")
+}
+
+// A User's relationship to a Tenant. A user has ONE identity and MANY memberships.
+// Do not duplicate user accounts per tenant — attach a membership instead.
+model TenantMembership {
+  tenantId  String
+  userId    String
+  status    MembershipStatus @default(ACTIVE)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, userId])
+  @@index([userId])
+  @@index([tenantId, status])
+  @@map("tenant_memberships")
+}
+
+// ─── Platform layer: PlatformMembership ──────────────────────────────────────
+// A user's membership in the PLATFORM itself (the SaaS operator), independent of
+// any tenant. This is the gate for the Super Admin app and /api/v1/platform/*:
+// a user must have an ACTIVE PlatformMembership to perform platform operations.
+//
+// Platform PERMISSIONS still flow through the existing RBAC engine: a platform
+// user is assigned a platform Role (UserRole with tenantId = null) whose
+// permissions are the platform.* keys. So authorization is:
+//   PlatformMembership (gate) + platform Role (via UserRole tenantId=null) +
+//   platform.* permission.
+// We never hardcode a role NAME for authorization — SUPER_ADMIN is just the
+// initial seeded platform role (see docs/super-admin/MULTI-TENANT-ARCHITECTURE §57).
+//
+// A single identity can therefore hold BOTH platform access and tenant
+// memberships (e.g. a platform employee who also supports a tenant) without
+// becoming an ordinary tenant user.
+model PlatformMembership {
+  userId    String           @id
+  status    MembershipStatus @default(ACTIVE)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("platform_memberships")
+}
+
+enum TenantStatus {
+  TRIAL
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+
+  @@map("tenant_status")
+}
+
+enum MembershipStatus {
+  INVITED
+  ACTIVE
+  SUSPENDED
+  REMOVED
+
+  @@map("membership_status")
+}
+
 // User model
 model User {
   id                  String         @id @default(cuid())
@@ -40,6 +132,8 @@ model User {
   refreshTokens        RefreshToken[]
   passwordResetTokens  PasswordResetToken[]
   roles                UserRole[]
+  memberships          TenantMembership[]
+  platformMembership   PlatformMembership?
 
   @@index([email])
   @@map("users")
@@ -69,10 +163,13 @@ model Todo {
   description String?
   completed   Boolean  @default(false)
   userId      String
+  // Tenant owner. Nullable during the staged migration (backfill → required).
+  tenantId    String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@index([userId])
+  @@index([tenantId])
   @@map("todos")
 }
 
@@ -145,18 +242,28 @@ model PasswordResetToken {
 // and protected from destructive admin operations.
 model Role {
   id          String           @id @default(cuid())
-  // Stable, unique identifier used in seeds and privilege checks (e.g.
-  // "SUPER_ADMIN"). Display-facing but treated as an internal key.
-  name        String           @unique
+  // Stable identifier used in seeds and privilege checks (e.g. "SUPER_ADMIN").
+  // Display-facing but treated as an internal key. Uniqueness is scoped to the
+  // tenant: role names may repeat across tenants (MULTI-TENANT-ARCHITECTURE §54).
+  name        String
+  // Tenant owner. NULL = platform/system role (e.g. SUPER_ADMIN) shared across
+  // the platform. Non-null = a role that belongs to one tenant.
+  tenantId    String?
   description String?
   // System roles are created by the seed and cannot be deleted/renamed by admins.
   isSystem    Boolean          @default(false)
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
 
+  tenant      Tenant?          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   users       UserRole[]
   permissions RolePermission[]
 
+  // Scoped uniqueness: one role name per tenant. Platform roles (tenantId NULL)
+  // are deduplicated by the partial unique index added in the migration, since
+  // Postgres treats NULLs as distinct in a composite unique.
+  @@unique([tenantId, name])
+  @@index([tenantId])
   @@map("roles")
 }
 
@@ -178,14 +285,23 @@ model Permission {
 model UserRole {
   userId     String
   roleId     String
+  // Tenant in which this assignment applies. Nullable during staged migration;
+  // NULL = a platform-level assignment (e.g. platform SUPER_ADMIN). Non-null =
+  // the assignment only grants the role's permissions within that tenant.
+  // This column is what makes RBAC tenant-aware: the AuthorizationService
+  // resolves a user's effective permissions within the ACTIVE tenant only.
+  tenantId   String?
   assignedAt DateTime @default(now())
   assignedBy String?
 
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  tenant     Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@id([userId, roleId])
   @@index([roleId])
+  @@index([tenantId])
+  @@index([userId, tenantId])
   @@map("user_roles")
 }
 
@@ -209,6 +325,9 @@ model RolePermission {
 model AuditLog {
   id         String   @id @default(cuid())
   action     String
+  // Tenant the event belongs to. NULL for platform-level events (e.g. tenant
+  // provisioning by a platform admin) — MULTI-TENANT-ARCHITECTURE §41.
+  tenantId   String?
   actorId    String?
   targetType String?
   targetId   String?
@@ -222,5 +341,7 @@ model AuditLog {
   @@index([action])
   @@index([targetType, targetId])
   @@index([createdAt])
+  @@index([tenantId])
+  @@index([tenantId, createdAt])
   @@map("audit_logs")
 }

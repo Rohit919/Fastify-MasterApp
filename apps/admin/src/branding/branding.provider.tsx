@@ -16,6 +16,7 @@ import {
   updateDocumentTitle,
   updateFavicon,
 } from "./branding.utils";
+import { useTenantStore } from "@/stores/tenant.store";
 
 /**
  * Centralized branding provider — the ONE source of truth for tenant branding.
@@ -33,12 +34,17 @@ import {
 
 const BrandingContext = createContext<BrandingContextValue | null>(null);
 
-function getSeed(): AppBranding {
-  return readCachedBranding() ?? DEFAULT_BRANDING;
+function getSeed(tenantId: string | null): AppBranding {
+  return readCachedBranding(tenantId) ?? DEFAULT_BRANDING;
 }
 
 export function BrandingProvider({ children }: { children: ReactNode }) {
-  const seed = useRef<AppBranding>(getSeed());
+  // The active tenant drives which branding we show. When it changes (login,
+  // tenant switch), we re-seed from that tenant's cache and re-fetch so Tenant
+  // A's brand is never shown under Tenant B (MULTI-TENANT §35, §67-§69).
+  const activeTenantId = useTenantStore((s) => s.activeTenantId);
+
+  const seed = useRef<AppBranding>(getSeed(activeTenantId));
   const [branding, setBranding] = useState<AppBranding>(seed.current);
   const [isLoading, setIsLoading] = useState(true);
   const [isFallback, setIsFallback] = useState(false);
@@ -51,11 +57,19 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
     updateFavicon(branding.favicon);
   }, [branding]);
 
-  // Fetch authoritative runtime branding (re-runs on refresh()).
+  // When the active tenant changes, immediately re-seed from that tenant's
+  // cached brand (instant, no flash of the previous tenant) before the network
+  // revalidates below.
+  useEffect(() => {
+    setBranding(getSeed(activeTenantId));
+  }, [activeTenantId]);
+
+  // Fetch authoritative runtime branding for the active tenant. Re-runs on
+  // refresh() (nonce) and whenever the active tenant changes.
   useEffect(() => {
     let cancelled = false;
     setIsLoading(true);
-    fetchBranding()
+    fetchBranding(activeTenantId)
       .then((next) => {
         if (cancelled) return;
         // If fetch returned defaults (failure path), flag fallback so UI/telemetry
@@ -69,7 +83,7 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [nonce]);
+  }, [nonce, activeTenantId]);
 
   const refresh = useCallback(() => setNonce((n) => n + 1), []);
 

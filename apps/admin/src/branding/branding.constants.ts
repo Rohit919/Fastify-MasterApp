@@ -22,8 +22,17 @@ export const BRAND_COLOR_VARS = {
 
 export type BrandColorKey = keyof typeof BRAND_COLOR_VARS;
 
-/** localStorage key caching the last good branding for instant next-load. */
+/** Base localStorage key caching the last good branding for instant next-load. */
 export const BRANDING_CACHE_KEY = "admin-branding";
+
+/**
+ * Per-tenant branding cache key. Namespacing by tenant ensures Tenant A's brand
+ * is never seeded/flashed while Tenant B is active (MULTI-TENANT §35, §69).
+ * With no active tenant (platform-only / single-tenant), the base key is used.
+ */
+export function brandingCacheKey(tenantId?: string | null): string {
+  return tenantId ? `${BRANDING_CACHE_KEY}:${tenantId}` : BRANDING_CACHE_KEY;
+}
 
 /** DOM id for the favicon <link> the FaviconManager owns. */
 export const FAVICON_LINK_ID = "app-favicon";

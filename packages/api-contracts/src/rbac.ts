@@ -1,4 +1,4 @@
-import { Type, type Static } from '@sinclair/typebox';
+import { Type, type Static } from "@sinclair/typebox";
 
 /**
  * RBAC contracts — shared between the Fastify API and the React admin.
@@ -18,72 +18,119 @@ import { Type, type Static } from '@sinclair/typebox';
 // enforcement/seed/UI. Adding a permission is a deliberate contract change.
 export const PermissionKeys = {
   // Dashboard
-  DashboardRead: 'dashboard.read',
+  DashboardRead: "dashboard.read",
 
   // Users
-  UsersRead: 'users.read',
-  UsersCreate: 'users.create',
-  UsersUpdate: 'users.update',
-  UsersDelete: 'users.delete',
+  UsersRead: "users.read",
+  UsersCreate: "users.create",
+  UsersUpdate: "users.update",
+  UsersDelete: "users.delete",
 
   // User ↔ role assignment (kept separate from users.update so a user admin is
   // not automatically allowed to change role assignments — privilege boundary)
-  UsersRolesRead: 'users.roles.read',
-  UsersRolesUpdate: 'users.roles.update',
+  UsersRolesRead: "users.roles.read",
+  UsersRolesUpdate: "users.roles.update",
 
   // Roles
-  RolesRead: 'roles.read',
-  RolesCreate: 'roles.create',
-  RolesUpdate: 'roles.update',
-  RolesDelete: 'roles.delete',
+  RolesRead: "roles.read",
+  RolesCreate: "roles.create",
+  RolesUpdate: "roles.update",
+  RolesDelete: "roles.delete",
 
   // Permissions (read-only registry to admins)
-  PermissionsRead: 'permissions.read',
+  PermissionsRead: "permissions.read",
 
   // Todos
-  TodosRead: 'todos.read',
-  TodosCreate: 'todos.create',
-  TodosUpdate: 'todos.update',
-  TodosDelete: 'todos.delete',
-  TodosReadAll: 'todos.read_all',
+  TodosRead: "todos.read",
+  TodosCreate: "todos.create",
+  TodosUpdate: "todos.update",
+  TodosDelete: "todos.delete",
+  TodosReadAll: "todos.read_all",
 
   // Orders
-  OrdersRead: 'orders.read',
-  OrdersCreate: 'orders.create',
-  OrdersUpdate: 'orders.update',
-  OrdersCancel: 'orders.cancel',
-  OrdersDelete: 'orders.delete',
+  OrdersRead: "orders.read",
+  OrdersCreate: "orders.create",
+  OrdersUpdate: "orders.update",
+  OrdersCancel: "orders.cancel",
+  OrdersDelete: "orders.delete",
 
   // Audit
-  AuditRead: 'audit.read',
+  AuditRead: "audit.read",
 
   // Operational metrics / diagnostics
-  MetricsRead: 'metrics.read',
+  MetricsRead: "metrics.read",
 
   // Settings
-  SettingsRead: 'settings.read',
-  SettingsUpdate: 'settings.update',
+  SettingsRead: "settings.read",
+  SettingsUpdate: "settings.update",
+
+  // ── Platform (Super Admin) permissions ──────────────────────────────────────
+  // These govern the PLATFORM itself, not any single tenant. They are granted
+  // to platform roles (Role.tenantId = null) and gated by an ACTIVE
+  // PlatformMembership. Never mix these into tenant roles
+  // (MULTI-TENANT-ARCHITECTURE §57).
+  PlatformDashboardView: "platform.dashboard.view",
+
+  PlatformTenantView: "platform.tenant.view",
+  PlatformTenantCreate: "platform.tenant.create",
+  PlatformTenantUpdate: "platform.tenant.update",
+  PlatformTenantSuspend: "platform.tenant.suspend",
+  PlatformTenantArchive: "platform.tenant.archive",
+
+  PlatformUserView: "platform.user.view",
+  PlatformUserCreate: "platform.user.create",
+  PlatformUserUpdate: "platform.user.update",
+  PlatformUserSuspend: "platform.user.suspend",
+
+  PlatformRoleView: "platform.role.view",
+  PlatformRoleCreate: "platform.role.create",
+  PlatformRoleUpdate: "platform.role.update",
+
+  PlatformPermissionView: "platform.permission.view",
+
+  PlatformAuditView: "platform.audit.view",
+
+  PlatformSettingsView: "platform.settings.view",
+  PlatformSettingsUpdate: "platform.settings.update",
+
+  PlatformFeatureFlagView: "platform.feature-flag.view",
+  PlatformFeatureFlagUpdate: "platform.feature-flag.update",
 } as const;
 
-export type PermissionKey = (typeof PermissionKeys)[keyof typeof PermissionKeys];
+export type PermissionKey =
+  (typeof PermissionKeys)[keyof typeof PermissionKeys];
 
 /** Every permission key as a flat, iterable list (used by the seed). */
-export const ALL_PERMISSION_KEYS: PermissionKey[] = Object.values(PermissionKeys);
+export const ALL_PERMISSION_KEYS: PermissionKey[] =
+  Object.values(PermissionKeys);
 
 /** Runtime guard: is a string a known permission key? */
 export function isPermissionKey(value: string): value is PermissionKey {
   return (ALL_PERMISSION_KEYS as string[]).includes(value);
 }
 
+/** True if a permission key is a PLATFORM (Super Admin) permission. */
+export function isPlatformPermissionKey(value: string): boolean {
+  return value.startsWith("platform.");
+}
+
+/** Every platform.* permission key (used to seed the platform role). */
+export const PLATFORM_PERMISSION_KEYS: PermissionKey[] =
+  ALL_PERMISSION_KEYS.filter(isPlatformPermissionKey);
+
+/** Every tenant/non-platform permission key. */
+export const TENANT_PERMISSION_KEYS: PermissionKey[] =
+  ALL_PERMISSION_KEYS.filter((k) => !isPlatformPermissionKey(k));
+
 // ── System roles ────────────────────────────────────────────────────────────────
 // Stable role names. SUPER_ADMIN is the platform break-glass role and is
 // specially protected (only a SUPER_ADMIN may grant/remove it).
 export const SystemRoles = {
-  SuperAdmin: 'SUPER_ADMIN',
-  Admin: 'ADMIN',
-  Manager: 'MANAGER',
-  Support: 'SUPPORT',
-  Viewer: 'VIEWER',
+  SuperAdmin: "SUPER_ADMIN",
+  Admin: "ADMIN",
+  Manager: "MANAGER",
+  Support: "SUPPORT",
+  Viewer: "VIEWER",
 } as const;
 
 export type SystemRoleName = (typeof SystemRoles)[keyof typeof SystemRoles];
@@ -144,7 +191,9 @@ export type UpdateRoleBody = Static<typeof UpdateRoleBody>;
 export const UpdateRolePermissionsBody = Type.Object({
   permissions: Type.Array(Type.String(), { maxItems: 200 }),
 });
-export type UpdateRolePermissionsBody = Static<typeof UpdateRolePermissionsBody>;
+export type UpdateRolePermissionsBody = Static<
+  typeof UpdateRolePermissionsBody
+>;
 
 export const SetUserRolesBody = Type.Object({
   // Role names to assign to the user. Replaces the user's current role set.
@@ -180,6 +229,24 @@ export const MeResponse = Type.Object({
     updatedAt: Type.String(),
     roles: Type.Array(Type.String()),
     permissions: Type.Array(Type.String()),
+    // Active tenant for the session, if any. Optional so platform-only users
+    // (no membership) and single-tenant deployments remain valid.
+    // roles/permissions above are already scoped to this tenant server-side.
+    tenant: Type.Optional(
+      Type.Object({
+        id: Type.String(),
+        name: Type.String(),
+        slug: Type.String(),
+        // Same status union as TenantDto so the Admin can feed /me's tenant
+        // straight into the tenant store without a cast.
+        status: Type.Union([
+          Type.Literal("TRIAL"),
+          Type.Literal("ACTIVE"),
+          Type.Literal("SUSPENDED"),
+          Type.Literal("ARCHIVED"),
+        ]),
+      }),
+    ),
   }),
 });
 export type MeResponse = Static<typeof MeResponse>;

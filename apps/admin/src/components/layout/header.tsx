@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import { ThemeSwitcher } from "@/components/layout/theme-switcher";
 import { UserMenu } from "@/components/layout/user-menu";
+import { TenantSwitcher } from "@/components/layout/tenant-switcher";
 import { Button } from "@/components/ui/button";
 
 export function Header({
@@ -29,6 +30,9 @@ export function Header({
       <div className="hidden md:block">
         <Breadcrumbs />
       </div>
+
+      {/* Active-tenant switcher (only rendered for multi-tenant users). */}
+      <TenantSwitcher />
 
       <div className="ml-auto flex items-center gap-1">
         {/* Command-palette trigger — click or ⌘/Ctrl-K. */}

@@ -9,6 +9,8 @@ export * from "./users.js";
 export * from "./rbac.js";
 export * from "./dashboard.js";
 export * from "./branding.js";
+export * from "./tenants.js";
+export * from "./platform.js";
 export * from "./todos.js";
 export * from "./examples.js";
 export * from "./endpoints/index.js";
