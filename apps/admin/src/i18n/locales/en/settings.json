@@ -2,12 +2,13 @@
   "title": "Settings",
   "profile": {
     "title": "Profile",
-    "subtitle": "Your account information",
+    "subtitle": "Update your account information",
     "name": "Name",
     "email": "Email",
     "role": "Role",
     "memberSince": "Member since",
-    "readOnlyNotice": "Profile editing isn't available yet — the backend does not expose a profile-update endpoint."
+    "save": "Save changes",
+    "updateSuccess": "Profile updated"
   },
   "appearance": {
     "title": "Appearance",

@@ -5,51 +5,52 @@
  * database connection or a .env file.
  */
 
-import Fastify from 'fastify';
-import { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
-import fp from 'fastify-plugin';
-import authPlugin from '../../plugins/auth.js';
-import authorizationPlugin from '../../plugins/authorization.js';
-import csrfPlugin from '../../plugins/csrf.js';
-import corsPlugin from '../../plugins/cors.js';
-import { registerErrorHandlers } from '../hooks/index.js';
-import rootRoutes from '../../modules/root/root.routes.js';
-import healthRoutes from '../../modules/health/health.routes.js';
-import authRoutes from '../../modules/auth/auth.routes.js';
-import authRecoveryRoutes from '../../modules/auth/auth-recovery.routes.js';
-import userRoutes from '../../modules/users/users.routes.js';
-import todoRoutes from '../../modules/todos/todos.routes.js';
-import exampleRoutes from '../../modules/example/example.routes.js';
-import rolesRoutes from '../../modules/roles/roles.routes.js';
-import type { Env } from '../../plugins/env.js';
-import type { PrismaClient } from '@prisma/client';
+import Fastify from "fastify";
+import { TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
+import fp from "fastify-plugin";
+import authPlugin from "../../plugins/auth.js";
+import authorizationPlugin from "../../plugins/authorization.js";
+import csrfPlugin from "../../plugins/csrf.js";
+import corsPlugin from "../../plugins/cors.js";
+import { registerErrorHandlers } from "../hooks/index.js";
+import rootRoutes from "../../modules/root/root.routes.js";
+import healthRoutes from "../../modules/health/health.routes.js";
+import authRoutes from "../../modules/auth/auth.routes.js";
+import authRecoveryRoutes from "../../modules/auth/auth-recovery.routes.js";
+import userRoutes from "../../modules/users/users.routes.js";
+import todoRoutes from "../../modules/todos/todos.routes.js";
+import exampleRoutes from "../../modules/example/example.routes.js";
+import rolesRoutes from "../../modules/roles/roles.routes.js";
+import adminRoutes from "../../modules/admin/admin.routes.js";
+import type { Env } from "../../plugins/env.js";
+import type { PrismaClient } from "@prisma/client";
 
 // ─── default test env ─────────────────────────────────────────────────────────
 export const TEST_ENV: Env = {
-  NODE_ENV: 'test',
+  NODE_ENV: "test",
   PORT: 3000,
-  HOST: '127.0.0.1',
-  LOG_LEVEL: 'silent',
-  DATABASE_URL: 'postgresql://test:test@localhost/test',
-  REDIS_URL: 'redis://localhost:6379',
-  JWT_SECRET: 'test-secret-that-is-long-enough-for-hs256',
-  JWT_EXPIRES_IN: '15m',
-  REFRESH_TOKEN_EXPIRES_IN: '7d',
-  API_PREFIX: '/api',
-  API_VERSION: 'v1',
+  HOST: "127.0.0.1",
+  LOG_LEVEL: "silent",
+  DATABASE_URL: "postgresql://test:test@localhost/test",
+  REDIS_URL: "redis://localhost:6379",
+  JWT_SECRET: "test-secret-that-is-long-enough-for-hs256",
+  JWT_EXPIRES_IN: "15m",
+  REFRESH_TOKEN_EXPIRES_IN: "7d",
+  API_PREFIX: "/api",
+  API_VERSION: "v1",
   RATE_LIMIT_MAX: 1000,
   RATE_LIMIT_TIME_WINDOW: 60000,
-  CORS_ORIGIN: 'http://localhost:3000',
+  CORS_ORIGIN: "http://localhost:3000",
   CORS_CREDENTIALS: true,
   HTTPS_ONLY: false,
   METRICS_ENABLED: false,
-  METRICS_PATH: '/metrics',
+  METRICS_PATH: "/metrics",
   SWAGGER_ENABLED: false,
-  SWAGGER_PATH: '/documentation',
-  SECRETS_PROVIDER: 'env',
+  SWAGGER_PATH: "/documentation",
+  SECRETS_PROVIDER: "env",
   OTEL_ENABLED: false,
-  OTEL_EXPORTER_OTLP_ENDPOINT: 'http://localhost:4318/v1/traces',
-  OTEL_SERVICE_NAME: 'fastify-api-test',
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://localhost:4318/v1/traces",
+  OTEL_SERVICE_NAME: "fastify-api-test",
 };
 
 // ─── mock Prisma type ─────────────────────────────────────────────────────────
@@ -61,11 +62,13 @@ export type MockPrisma = {
     : Record<string, (...args: unknown[]) => unknown>;
 };
 
-export function buildMockPrisma(overrides: Partial<MockPrisma> = {}): MockPrisma {
+export function buildMockPrisma(
+  overrides: Partial<MockPrisma> = {},
+): MockPrisma {
   const defaults: Record<string, unknown> = {
     $connect: async () => {},
     $disconnect: async () => {},
-    $queryRaw: async () => [{ '?column?': 1 }],
+    $queryRaw: async () => [{ "?column?": 1 }],
     user: {
       findUnique: async () => null,
       create: async () => null,
@@ -132,7 +135,7 @@ export function buildMockPrisma(overrides: Partial<MockPrisma> = {}): MockPrisma
     },
     // $transaction: run the callback with the same mock client (interactive form).
     $transaction: async (arg: unknown) => {
-      if (typeof arg === 'function') {
+      if (typeof arg === "function") {
         return (arg as (tx: unknown) => unknown)(merged);
       }
       // Array form: resolve each promise.
@@ -145,7 +148,12 @@ export function buildMockPrisma(overrides: Partial<MockPrisma> = {}): MockPrisma
   const merged: Record<string, unknown> = { ...defaults };
   for (const [key, value] of Object.entries(overrides)) {
     const base = defaults[key];
-    if (base && typeof base === 'object' && typeof value === 'object' && value !== null) {
+    if (
+      base &&
+      typeof base === "object" &&
+      typeof value === "object" &&
+      value !== null
+    ) {
       merged[key] = { ...(base as object), ...(value as object) };
     } else {
       merged[key] = value;
@@ -169,41 +177,61 @@ export async function buildTestApp(options: BuildTestAppOptions = {}) {
 
   const app = Fastify({
     logger: false,
-    ajv: { customOptions: { removeAdditional: true, useDefaults: true, coerceTypes: 'array' } },
+    ajv: {
+      customOptions: {
+        removeAdditional: true,
+        useDefaults: true,
+        coerceTypes: "array",
+      },
+    },
   }).withTypeProvider<TypeBoxTypeProvider>();
 
   // Inject mock env — name inside fp() so dependency checks pass
   await app.register(
-    fp(async (fastify) => { fastify.decorate('config', env); }, { name: 'env' })
+    fp(
+      async (fastify) => {
+        fastify.decorate("config", env);
+      },
+      { name: "env" },
+    ),
   );
 
   // Inject mock prisma (cast — the mock only implements methods the tests exercise)
   await app.register(
-    fp(async (fastify) => {
-      fastify.decorate('prisma', mockPrisma as unknown as PrismaClient);
-    }, { name: 'prisma' })
+    fp(
+      async (fastify) => {
+        fastify.decorate("prisma", mockPrisma as unknown as PrismaClient);
+      },
+      { name: "prisma" },
+    ),
   );
 
   // Inject mock redis — health route pings this; ping() always resolves 'PONG'
   await app.register(
-    fp(async (fastify) => {
-      const mockRedis = {
-        ping: async () => 'PONG',
-        quit: async () => 'OK' as const,
-        disconnect: () => undefined,
-        ...(options.redis ?? {}),
-      };
-      fastify.decorate('redis', mockRedis as unknown as import('ioredis').Redis);
-    }, { name: 'redis' })
+    fp(
+      async (fastify) => {
+        const mockRedis = {
+          ping: async () => "PONG",
+          quit: async () => "OK" as const,
+          disconnect: () => undefined,
+          ...(options.redis ?? {}),
+        };
+        fastify.decorate(
+          "redis",
+          mockRedis as unknown as import("ioredis").Redis,
+        );
+      },
+      { name: "redis" },
+    ),
   );
 
   await app.register(authPlugin);
   await app.register(authorizationPlugin);
 
-  const sensible = await import('@fastify/sensible');
+  const sensible = await import("@fastify/sensible");
   await app.register(sensible.default);
 
-  const cookie = await import('@fastify/cookie');
+  const cookie = await import("@fastify/cookie");
   await app.register(cookie.default);
 
   // CORS + CSRF (defense-in-depth) — mirrors the production stack so security
@@ -221,14 +249,15 @@ export async function buildTestApp(options: BuildTestAppOptions = {}) {
   await app.register(
     async (fastify) => {
       await fastify.register(healthRoutes);
-      await fastify.register(authRoutes, { prefix: '/auth' });
-      await fastify.register(authRecoveryRoutes, { prefix: '/auth' });
-      await fastify.register(userRoutes, { prefix: '/users' });
-      await fastify.register(exampleRoutes, { prefix: '/examples' });
-      await fastify.register(todoRoutes, { prefix: '/todos' });
-      await fastify.register(rolesRoutes, { prefix: '/admin' });
+      await fastify.register(authRoutes, { prefix: "/auth" });
+      await fastify.register(authRecoveryRoutes, { prefix: "/auth" });
+      await fastify.register(userRoutes, { prefix: "/users" });
+      await fastify.register(exampleRoutes, { prefix: "/examples" });
+      await fastify.register(todoRoutes, { prefix: "/todos" });
+      await fastify.register(adminRoutes, { prefix: "/admin" });
+      await fastify.register(rolesRoutes, { prefix: "/admin" });
     },
-    { prefix: `${env.API_PREFIX}/${env.API_VERSION}` }
+    { prefix: `${env.API_PREFIX}/${env.API_VERSION}` },
   );
 
   await app.ready();
@@ -239,10 +268,10 @@ export async function buildTestApp(options: BuildTestAppOptions = {}) {
 export function signTestToken(
   app: Awaited<ReturnType<typeof buildTestApp>>,
   payload: { id: string; email: string; role: string } = {
-    id: 'user-test-id',
-    email: 'test@example.com',
-    role: 'user',
-  }
+    id: "user-test-id",
+    email: "test@example.com",
+    role: "user",
+  },
 ): string {
   return app.jwt.sign(payload);
 }

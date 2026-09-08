@@ -12,7 +12,8 @@
     "signups": "New users (last 7 days)",
     "activity": "Activity"
   },
-  "recentActivity": "Recent activity",
+  "recentActivity": "Recent users",
+  "noRecentUsers": "No recent users.",
   "quickActions": "Quick actions",
   "quick": {
     "manageUsers": "Manage users",
@@ -20,5 +21,5 @@
     "viewPermissions": "View permissions",
     "settings": "Open settings"
   },
-  "devDataNotice": "Showing placeholder metrics. Connect a metrics API to display live data."
+  "devDataNotice": "Showing limited metrics — you don't have permission to view full dashboard analytics."
 }

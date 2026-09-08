@@ -1,4 +1,4 @@
-import { API_VERSION, encodeId } from './common.js';
+import { API_VERSION, encodeId } from "./common.js";
 
 /**
  * Admin-area endpoint paths (registered under `/api/v1/admin`).
@@ -11,13 +11,15 @@ const ROLES_BASE = `${ADMIN_BASE}/roles`;
 
 export const ADMIN_ENDPOINTS = {
   DB_METRICS: `${ADMIN_BASE}/db-metrics`,
+  DASHBOARD: `${ADMIN_BASE}/dashboard`,
 } as const;
 
 export const ROLE_ENDPOINTS = {
   ROOT: ROLES_BASE,
 
   BY_ID: (roleId: string) => `${ROLES_BASE}/${encodeId(roleId)}`,
-  PERMISSIONS: (roleId: string) => `${ROLES_BASE}/${encodeId(roleId)}/permissions`,
+  PERMISSIONS: (roleId: string) =>
+    `${ROLES_BASE}/${encodeId(roleId)}/permissions`,
 
   // Fastify route templates
   ROUTE_BY_ID: `${ROLES_BASE}/:id`,

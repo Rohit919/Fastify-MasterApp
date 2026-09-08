@@ -104,3 +104,29 @@
     font-feature-settings: 'rlig' 1, 'calt' 1;
   }
 }
+
+/* ── Auth (login/reset) premium brand panel ──────────────────────────────────
+   Reusable decorative utilities for the split-screen auth layout. Purely
+   presentational and theme-token driven so they work in light + dark. */
+@layer components {
+  .auth-brand {
+    background:
+      radial-gradient(120% 120% at 100% 0%, hsl(var(--primary) / 0.35) 0%, transparent 55%),
+      radial-gradient(90% 90% at 0% 100%, hsl(var(--sidebar-accent) / 0.35) 0%, transparent 50%),
+      hsl(var(--sidebar));
+  }
+
+  /* Faint grid overlay for depth on the brand panel. */
+  .auth-grid {
+    background-image:
+      linear-gradient(hsl(var(--sidebar-foreground) / 0.06) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--sidebar-foreground) / 0.06) 1px, transparent 1px);
+    background-size: 40px 40px;
+    mask-image: radial-gradient(120% 100% at 50% 0%, black 40%, transparent 100%);
+  }
+
+  /* Soft glow blob used behind the form card on small screens. */
+  .auth-glow {
+    background: radial-gradient(circle at 50% 0%, hsl(var(--primary) / 0.18) 0%, transparent 70%);
+  }
+}

@@ -8,20 +8,30 @@
  *
  * This is the richer companion to the Level 1 path registry in ../endpoints.
  */
-export * from './http.js';
-export * from './endpoint.js';
-export * from './params.js';
-export { AUTH_CONTRACTS } from './auth.js';
-export { USER_CONTRACTS } from './users.js';
-export { ROLE_CONTRACTS, PERMISSION_CONTRACTS, USER_ROLE_CONTRACTS } from './rbac.js';
-export { TODO_CONTRACTS } from './todos.js';
-export { EXAMPLE_CONTRACTS } from './examples.js';
+export * from "./http.js";
+export * from "./endpoint.js";
+export * from "./params.js";
+export { AUTH_CONTRACTS } from "./auth.js";
+export { USER_CONTRACTS } from "./users.js";
+export {
+  ROLE_CONTRACTS,
+  PERMISSION_CONTRACTS,
+  USER_ROLE_CONTRACTS,
+} from "./rbac.js";
+export { DASHBOARD_CONTRACTS } from "./dashboard.js";
+export { TODO_CONTRACTS } from "./todos.js";
+export { EXAMPLE_CONTRACTS } from "./examples.js";
 
-import { AUTH_CONTRACTS } from './auth.js';
-import { USER_CONTRACTS } from './users.js';
-import { ROLE_CONTRACTS, PERMISSION_CONTRACTS, USER_ROLE_CONTRACTS } from './rbac.js';
-import { TODO_CONTRACTS } from './todos.js';
-import { EXAMPLE_CONTRACTS } from './examples.js';
+import { AUTH_CONTRACTS } from "./auth.js";
+import { USER_CONTRACTS } from "./users.js";
+import {
+  ROLE_CONTRACTS,
+  PERMISSION_CONTRACTS,
+  USER_ROLE_CONTRACTS,
+} from "./rbac.js";
+import { DASHBOARD_CONTRACTS } from "./dashboard.js";
+import { TODO_CONTRACTS } from "./todos.js";
+import { EXAMPLE_CONTRACTS } from "./examples.js";
 
 /** Aggregate contract registry — one root object for tooling. */
 export const API_CONTRACTS = {
@@ -30,6 +40,7 @@ export const API_CONTRACTS = {
   ROLES: ROLE_CONTRACTS,
   PERMISSIONS: PERMISSION_CONTRACTS,
   USER_ROLES: USER_ROLE_CONTRACTS,
+  DASHBOARD: DASHBOARD_CONTRACTS,
   TODOS: TODO_CONTRACTS,
   EXAMPLES: EXAMPLE_CONTRACTS,
 } as const;

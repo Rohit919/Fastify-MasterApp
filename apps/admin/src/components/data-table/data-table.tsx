@@ -1,6 +1,12 @@
-import { useMemo, useState, type ReactNode } from 'react';
-import { ArrowDown, ArrowUp, ChevronsUpDown, SlidersHorizontal } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
+import { useMemo, useState, type ReactNode } from "react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ChevronsUpDown,
+  SlidersHorizontal,
+  X,
+} from "lucide-react";
+import { useTranslation } from "react-i18next";
 import {
   Table,
   TableBody,
@@ -8,8 +14,9 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -17,14 +24,19 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Skeleton } from '@/components/ui/skeleton';
-import { EmptyState } from '@/components/feedback/empty-state';
-import { ErrorState } from '@/components/feedback/error-state';
-import { DataTablePagination } from '@/components/data-table/pagination';
-import type { DataTableColumn, PageMeta, SortOrder, SortState } from '@/components/data-table/types';
-import { cn } from '@/lib/utils';
-import { getRequestId, mapApiError } from '@/lib/errors';
+} from "@/components/ui/dropdown-menu";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/feedback/empty-state";
+import { ErrorState } from "@/components/feedback/error-state";
+import { DataTablePagination } from "@/components/data-table/pagination";
+import type {
+  DataTableColumn,
+  PageMeta,
+  SortOrder,
+  SortState,
+} from "@/components/data-table/types";
+import { cn } from "@/lib/utils";
+import { getRequestId, mapApiError } from "@/lib/errors";
 
 interface DataTableProps<T> {
   columns: DataTableColumn<T>[];
@@ -52,6 +64,23 @@ interface DataTableProps<T> {
   /** Row actions cell renderer (rendered in a trailing column). */
   rowActions?: (row: T) => ReactNode;
   emptyMessage?: string;
+
+  // ── Optional row selection + bulk actions (additive; opt-in) ───────────────
+  /** Enable a leading checkbox column + select-all. */
+  enableSelection?: boolean;
+  /** Controlled selected row keys. */
+  selectedIds?: string[];
+  onSelectionChange?: (ids: string[]) => void;
+  /**
+   * Renders a bulk-action bar when ≥1 row is selected. Receives the selected
+   * keys and a `clear()` to reset the selection after an action completes.
+   */
+  bulkActions?: (args: {
+    selectedIds: string[];
+    clear: () => void;
+  }) => ReactNode;
+  /** Rows a checkbox should be disabled for (e.g. the current user). */
+  isRowSelectable?: (row: T) => boolean;
 }
 
 /**
@@ -78,15 +107,44 @@ export function DataTable<T>({
   toolbar,
   rowActions,
   emptyMessage,
+  enableSelection,
+  selectedIds,
+  onSelectionChange,
+  bulkActions,
+  isRowSelectable,
 }: DataTableProps<T>) {
   const { t } = useTranslation();
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(
-    () => new Set(columns.filter((c) => c.hidden).map((c) => c.id))
+    () => new Set(columns.filter((c) => c.hidden).map((c) => c.id)),
   );
+
+  // ── Selection helpers ──────────────────────────────────────────────────────
+  const selected = useMemo(() => new Set(selectedIds ?? []), [selectedIds]);
+  const selectableRows = useMemo(
+    () => rows.filter((r) => (isRowSelectable ? isRowSelectable(r) : true)),
+    [rows, isRowSelectable],
+  );
+  const allSelected =
+    selectableRows.length > 0 &&
+    selectableRows.every((r) => selected.has(rowKey(r)));
+  const someSelected = selectableRows.some((r) => selected.has(rowKey(r)));
+
+  const setSelection = (ids: string[]) => onSelectionChange?.(ids);
+  const clearSelection = () => setSelection([]);
+  const toggleRow = (id: string) => {
+    const next = new Set(selected);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelection([...next]);
+  };
+  const toggleAll = () => {
+    if (allSelected) clearSelection();
+    else setSelection(selectableRows.map(rowKey));
+  };
 
   const visibleColumns = useMemo(
     () => columns.filter((c) => !hiddenIds.has(c.id)),
-    [columns, hiddenIds]
+    [columns, hiddenIds],
   );
 
   const toggleColumn = (id: string) => {
@@ -101,26 +159,48 @@ export function DataTable<T>({
   const handleSort = (sortKey: string) => {
     if (!onSortChange) return;
     const nextOrder: SortOrder =
-      sort?.sortBy === sortKey && sort.sortOrder === 'asc' ? 'desc' : 'asc';
+      sort?.sortBy === sortKey && sort.sortOrder === "asc" ? "desc" : "asc";
     onSortChange({ sortBy: sortKey, sortOrder: nextOrder });
   };
 
-  const columnCount = visibleColumns.length + (rowActions ? 1 : 0);
+  const columnCount =
+    visibleColumns.length + (rowActions ? 1 : 0) + (enableSelection ? 1 : 0);
+
+  const selectionCount = selected.size;
 
   return (
     <div className="space-y-4">
+      {enableSelection && bulkActions && selectionCount > 0 && (
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-accent/40 px-4 py-2">
+          <span className="text-sm font-medium">
+            {t("common:labels.selectedCount", { count: selectionCount })}
+          </span>
+          <div className="flex flex-1 flex-wrap items-center gap-2">
+            {bulkActions({ selectedIds: [...selected], clear: clearSelection })}
+          </div>
+          <Button variant="ghost" size="sm" onClick={clearSelection}>
+            <X className="h-4 w-4" />
+            {t("common:actions.clear")}
+          </Button>
+        </div>
+      )}
+
       {(toolbar || columns.some((c) => !c.alwaysVisible)) && (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-1 flex-wrap items-center gap-2">{toolbar}</div>
+          <div className="flex flex-1 flex-wrap items-center gap-2">
+            {toolbar}
+          </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm">
                 <SlidersHorizontal className="h-4 w-4" />
-                {t('common:labels.columns')}
+                {t("common:labels.columns")}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuLabel>{t('common:labels.columns')}</DropdownMenuLabel>
+              <DropdownMenuLabel>
+                {t("common:labels.columns")}
+              </DropdownMenuLabel>
               <DropdownMenuSeparator />
               {columns
                 .filter((c) => !c.alwaysVisible)
@@ -143,6 +223,22 @@ export function DataTable<T>({
         <Table>
           <TableHeader>
             <TableRow>
+              {enableSelection && (
+                <TableHead className="w-0">
+                  <Checkbox
+                    aria-label={t("common:labels.selectAll")}
+                    checked={
+                      allSelected
+                        ? true
+                        : someSelected
+                          ? "indeterminate"
+                          : false
+                    }
+                    onCheckedChange={toggleAll}
+                    disabled={selectableRows.length === 0}
+                  />
+                </TableHead>
+              )}
               {visibleColumns.map((col) => {
                 const active = sort?.sortBy === col.sortKey;
                 return (
@@ -155,7 +251,7 @@ export function DataTable<T>({
                       >
                         {col.header}
                         {active ? (
-                          sort?.sortOrder === 'asc' ? (
+                          sort?.sortOrder === "asc" ? (
                             <ArrowUp className="h-3.5 w-3.5" />
                           ) : (
                             <ArrowDown className="h-3.5 w-3.5" />
@@ -172,7 +268,7 @@ export function DataTable<T>({
               })}
               {rowActions && (
                 <TableHead className="w-0 text-right">
-                  {t('common:labels.actions')}
+                  {t("common:labels.actions")}
                 </TableHead>
               )}
             </TableRow>
@@ -191,6 +287,11 @@ export function DataTable<T>({
             ) : isLoading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={`skeleton-${i}`}>
+                  {enableSelection && (
+                    <TableCell>
+                      <Skeleton className="h-4 w-4" />
+                    </TableCell>
+                  )}
                   {visibleColumns.map((col) => (
                     <TableCell key={col.id}>
                       <Skeleton className="h-4 w-full max-w-[160px]" />
@@ -207,27 +308,49 @@ export function DataTable<T>({
               <TableRow>
                 <TableCell colSpan={columnCount} className="p-0">
                   <EmptyState
-                    variant={isFiltered ? 'no-results' : 'empty'}
+                    variant={isFiltered ? "no-results" : "empty"}
                     message={emptyMessage}
                   />
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((row) => (
-                <TableRow
-                  key={rowKey(row)}
-                  className={cn(isFetching && 'opacity-60 transition-opacity')}
-                >
-                  {visibleColumns.map((col) => (
-                    <TableCell key={col.id} className={col.className}>
-                      {col.cell(row)}
-                    </TableCell>
-                  ))}
-                  {rowActions && (
-                    <TableCell className="text-right">{rowActions(row)}</TableCell>
-                  )}
-                </TableRow>
-              ))
+              rows.map((row) => {
+                const id = rowKey(row);
+                const selectable = isRowSelectable
+                  ? isRowSelectable(row)
+                  : true;
+                const isSelected = selected.has(id);
+                return (
+                  <TableRow
+                    key={id}
+                    data-state={isSelected ? "selected" : undefined}
+                    className={cn(
+                      isFetching && "opacity-60 transition-opacity",
+                    )}
+                  >
+                    {enableSelection && (
+                      <TableCell>
+                        <Checkbox
+                          aria-label={t("common:labels.selectRow")}
+                          checked={isSelected}
+                          disabled={!selectable}
+                          onCheckedChange={() => toggleRow(id)}
+                        />
+                      </TableCell>
+                    )}
+                    {visibleColumns.map((col) => (
+                      <TableCell key={col.id} className={col.className}>
+                        {col.cell(row)}
+                      </TableCell>
+                    ))}
+                    {rowActions && (
+                      <TableCell className="text-right">
+                        {rowActions(row)}
+                      </TableCell>
+                    )}
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>

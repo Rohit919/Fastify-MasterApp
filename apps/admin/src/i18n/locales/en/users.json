@@ -13,9 +13,38 @@
     "createdAt": "Created",
     "actions": "Actions"
   },
+  "form": {
+    "name": "Name",
+    "email": "Email",
+    "password": "Password",
+    "role": "Role"
+  },
   "actions": {
     "assignRoles": "Assign roles",
     "viewDetails": "View details"
+  },
+  "create": {
+    "trigger": "New user",
+    "title": "Create user",
+    "submit": "Create user",
+    "success": "User created"
+  },
+  "edit": {
+    "title": "Edit user",
+    "submit": "Save changes",
+    "success": "User updated"
+  },
+  "delete": {
+    "title": "Delete user",
+    "confirm": "Delete the user \"{{name}}\"? This cannot be undone.",
+    "success": "User deleted"
+  },
+  "bulkDelete": {
+    "trigger": "Delete selected",
+    "title": "Delete users",
+    "confirm": "Delete {{count}} selected user(s)? This cannot be undone.",
+    "success": "Deleted {{count}} user(s)",
+    "partial": "Deleted {{total}} user(s), {{failed}} failed"
   },
   "detail": {
     "title": "User details",
@@ -28,9 +57,5 @@
     "save": "Save roles",
     "success": "Roles updated successfully"
   },
-  "empty": "No users found.",
-  "notSupported": {
-    "create": "Creating users isn't available yet — the backend does not expose a create-user endpoint.",
-    "editDelete": "Editing and deleting individual users isn't available yet. You can manage role assignments."
-  }
+  "empty": "No users found."
 }

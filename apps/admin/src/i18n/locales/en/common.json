@@ -35,6 +35,9 @@
     "createdAt": "Created",
     "updatedAt": "Updated",
     "columns": "Columns",
+    "selectAll": "Select all",
+    "selectRow": "Select row",
+    "selectedCount": "{{count}} selected",
     "rowsPerPage": "Rows per page",
     "page": "Page",
     "of": "of"
@@ -58,6 +61,12 @@
     "otpInvalid": "Invalid or expired code.",
     "serviceUnavailable": "Service temporarily unavailable.",
     "timeout": "The request timed out. Please try again."
+  },
+  "command": {
+    "label": "Command menu",
+    "placeholder": "Search pages…",
+    "empty": "No results found.",
+    "trigger": "Search"
   },
   "notFoundPage": {
     "title": "Page not found",

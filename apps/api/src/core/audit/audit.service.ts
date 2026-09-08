@@ -1,17 +1,21 @@
-import type { PrismaClient, Prisma } from '@prisma/client';
-import type { FastifyRequest } from 'fastify';
+import type { PrismaClient, Prisma } from "@prisma/client";
+import type { FastifyRequest } from "fastify";
 
 /**
  * Audit actions for authorization-relevant changes. Stable string constants so
  * downstream consumers (SIEM, reports) can filter reliably.
  */
 export const AuditActions = {
-  RoleCreated: 'ROLE_CREATED',
-  RoleUpdated: 'ROLE_UPDATED',
-  RoleDeleted: 'ROLE_DELETED',
-  RoleAssigned: 'ROLE_ASSIGNED',
-  RoleRemoved: 'ROLE_REMOVED',
-  RolePermissionsUpdated: 'ROLE_PERMISSIONS_UPDATED',
+  RoleCreated: "ROLE_CREATED",
+  RoleUpdated: "ROLE_UPDATED",
+  RoleDeleted: "ROLE_DELETED",
+  RoleAssigned: "ROLE_ASSIGNED",
+  RoleRemoved: "ROLE_REMOVED",
+  RolePermissionsUpdated: "ROLE_PERMISSIONS_UPDATED",
+  UserCreated: "USER_CREATED",
+  UserUpdated: "USER_UPDATED",
+  UserDeleted: "USER_DELETED",
+  ProfileUpdated: "PROFILE_UPDATED",
 } as const;
 
 export type AuditAction = (typeof AuditActions)[keyof typeof AuditActions];
@@ -39,7 +43,7 @@ export class AuditService {
 
   async record(
     entry: AuditEntry,
-    tx?: Prisma.TransactionClient
+    tx?: Prisma.TransactionClient,
   ): Promise<void> {
     const client = tx ?? this.prisma;
     await client.auditLog.create({
@@ -48,7 +52,8 @@ export class AuditService {
         actorId: entry.actorId ?? null,
         targetType: entry.targetType ?? null,
         targetId: entry.targetId ?? null,
-        metadata: (entry.metadata ?? undefined) as Prisma.InputJsonValue | undefined,
+        metadata: (entry.metadata ?? undefined) as
+          Prisma.InputJsonValue | undefined,
         requestId: entry.requestId ?? null,
         ip: entry.ip ?? null,
         userAgent: entry.userAgent ?? null,
@@ -57,12 +62,14 @@ export class AuditService {
   }
 
   /** Pull the request-scoped audit fields (actor, requestId, ip, userAgent). */
-  static contextFrom(request: FastifyRequest): Pick<AuditEntry, 'actorId' | 'requestId' | 'ip' | 'userAgent'> {
+  static contextFrom(
+    request: FastifyRequest,
+  ): Pick<AuditEntry, "actorId" | "requestId" | "ip" | "userAgent"> {
     return {
       actorId: request.user?.id ?? null,
       requestId: request.id,
       ip: request.ip,
-      userAgent: request.headers['user-agent'] ?? null,
+      userAgent: request.headers["user-agent"] ?? null,
     };
   }
 }

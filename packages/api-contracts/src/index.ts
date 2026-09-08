@@ -2,12 +2,13 @@
  * @app/api-contracts — shared TypeBox contracts.
  * Consumed by apps/api (Fastify schemas) and apps/admin (typed API client).
  */
-export * from './common.js';
-export * from './auth.js';
-export * from './auth-otp.js';
-export * from './users.js';
-export * from './rbac.js';
-export * from './todos.js';
-export * from './examples.js';
-export * from './endpoints/index.js';
-export * from './contracts/index.js';
+export * from "./common.js";
+export * from "./auth.js";
+export * from "./auth-otp.js";
+export * from "./users.js";
+export * from "./rbac.js";
+export * from "./dashboard.js";
+export * from "./todos.js";
+export * from "./examples.js";
+export * from "./endpoints/index.js";
+export * from "./contracts/index.js";
