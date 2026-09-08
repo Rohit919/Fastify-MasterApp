@@ -166,23 +166,33 @@ async function seedRoles(permIdByKey: Map<string, string>): Promise<void> {
     SystemRoleName,
     (typeof ROLE_DEFINITIONS)[SystemRoleName],
   ][]) {
-    // System roles are platform-level (tenantId = null). Uniqueness is the
-    // composite (tenantId, name); with tenantId null this addresses the one
-    // platform role per name.
-    const role = await prisma.role.upsert({
-      where: { tenantId_name: { tenantId: null, name } },
-      update: { description: def.description, isSystem: true },
-      create: { name, description: def.description, isSystem: true },
+    // System roles are platform-level (tenantId = null). Use findFirst + upsert
+    // workaround since Prisma composite unique where doesn't accept null values.
+    const existing = await prisma.role.findFirst({
+      where: { name, tenantId: null },
     });
+    let role: { id: string };
+    if (existing) {
+      role = await prisma.role.update({
+        where: { id: existing.id },
+        data: { description: def.description, isSystem: true },
+        select: { id: true },
+      });
+    } else {
+      role = await prisma.role.create({
+        data: { name, description: def.description, isSystem: true },
+        select: { id: true },
+      });
+    }
 
     // Reconcile role→permission links: add any that are missing. We don't strip
     // extras here so an operator can grant additional permissions to a system
     // role without the seed clobbering them.
-    const existing = await prisma.rolePermission.findMany({
+    const existingPerms = await prisma.rolePermission.findMany({
       where: { roleId: role.id },
       select: { permissionId: true },
     });
-    const existingIds = new Set(existing.map((e) => e.permissionId));
+    const existingIds = new Set(existingPerms.map((e) => e.permissionId));
 
     const toCreate = def.permissions
       .map((key) => permIdByKey.get(key))
