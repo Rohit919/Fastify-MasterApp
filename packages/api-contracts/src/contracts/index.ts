@@ -19,6 +19,7 @@ export {
   USER_ROLE_CONTRACTS,
 } from "./rbac.js";
 export { DASHBOARD_CONTRACTS } from "./dashboard.js";
+export { BRANDING_CONTRACTS } from "./branding.js";
 export { TODO_CONTRACTS } from "./todos.js";
 export { EXAMPLE_CONTRACTS } from "./examples.js";
 
@@ -30,6 +31,7 @@ import {
   USER_ROLE_CONTRACTS,
 } from "./rbac.js";
 import { DASHBOARD_CONTRACTS } from "./dashboard.js";
+import { BRANDING_CONTRACTS } from "./branding.js";
 import { TODO_CONTRACTS } from "./todos.js";
 import { EXAMPLE_CONTRACTS } from "./examples.js";
 
@@ -41,6 +43,7 @@ export const API_CONTRACTS = {
   PERMISSIONS: PERMISSION_CONTRACTS,
   USER_ROLES: USER_ROLE_CONTRACTS,
   DASHBOARD: DASHBOARD_CONTRACTS,
+  BRANDING: BRANDING_CONTRACTS,
   TODOS: TODO_CONTRACTS,
   EXAMPLES: EXAMPLE_CONTRACTS,
 } as const;

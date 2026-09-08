@@ -1,39 +1,43 @@
-import Fastify from 'fastify';
-import { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
-import { logger } from '@core/utils/logger.js';
-import { registerGlobalHooks, registerErrorHandlers } from '@core/hooks/index.js';
-import { RateLimitError } from '@core/errors/index.js';
+import Fastify from "fastify";
+import { TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
+import { logger } from "@core/utils/logger.js";
+import {
+  registerGlobalHooks,
+  registerErrorHandlers,
+} from "@core/hooks/index.js";
+import { RateLimitError } from "@core/errors/index.js";
 
 // ── Infrastructure plugins ──────────────────────────────────────────────────
-import envPlugin from './plugins/env.js';
-import corsPlugin from './plugins/cors.js';
-import redisPlugin from './plugins/redis.js';
-import queuePlugin from './plugins/queue.js';
-import dbPlugin from './plugins/db.js';
-import authPlugin from './plugins/auth.js';
-import authorizationPlugin from './plugins/authorization.js';
-import metricsPlugin from './plugins/metrics.js';
-import swaggerPlugin from './plugins/swagger.js';
-import csrfPlugin from './plugins/csrf.js';
+import envPlugin from "./plugins/env.js";
+import corsPlugin from "./plugins/cors.js";
+import redisPlugin from "./plugins/redis.js";
+import queuePlugin from "./plugins/queue.js";
+import dbPlugin from "./plugins/db.js";
+import authPlugin from "./plugins/auth.js";
+import authorizationPlugin from "./plugins/authorization.js";
+import metricsPlugin from "./plugins/metrics.js";
+import swaggerPlugin from "./plugins/swagger.js";
+import csrfPlugin from "./plugins/csrf.js";
 
 // ── Domain modules (vertical slices) ────────────────────────────────────────
-import rootRoutes from './modules/root/root.routes.js';
-import apiIndexRoutes from './modules/api-index/api-index.routes.js';
-import healthRoutes from './modules/health/health.routes.js';
-import authRoutes from './modules/auth/auth.routes.js';
-import authRecoveryRoutes from './modules/auth/auth-recovery.routes.js';
-import userRoutes from './modules/users/users.routes.js';
-import exampleRoutes from './modules/example/example.routes.js';
-import todoRoutes from './modules/todos/todos.routes.js';
-import adminRoutes from './modules/admin/admin.routes.js';
-import rolesRoutes from './modules/roles/roles.routes.js';
+import rootRoutes from "./modules/root/root.routes.js";
+import apiIndexRoutes from "./modules/api-index/api-index.routes.js";
+import healthRoutes from "./modules/health/health.routes.js";
+import authRoutes from "./modules/auth/auth.routes.js";
+import authRecoveryRoutes from "./modules/auth/auth-recovery.routes.js";
+import userRoutes from "./modules/users/users.routes.js";
+import exampleRoutes from "./modules/example/example.routes.js";
+import todoRoutes from "./modules/todos/todos.routes.js";
+import adminRoutes from "./modules/admin/admin.routes.js";
+import rolesRoutes from "./modules/roles/roles.routes.js";
+import brandingRoutes from "./modules/branding/branding.routes.js";
 
 export async function buildApp() {
   const app = Fastify({
     logger: logger as any,
     trustProxy: true,
-    requestIdHeader: 'x-request-id',
-    requestIdLogLabel: 'requestId',
+    requestIdHeader: "x-request-id",
+    requestIdLogLabel: "requestId",
     disableRequestLogging: false,
     maxParamLength: 200,
     // Strip undeclared body properties (mass-assignment defence) and fill schema
@@ -43,7 +47,7 @@ export async function buildApp() {
       customOptions: {
         removeAdditional: true,
         useDefaults: true,
-        coerceTypes: 'array',
+        coerceTypes: "array",
       },
     },
   }).withTypeProvider<TypeBoxTypeProvider>();
@@ -59,34 +63,34 @@ export async function buildApp() {
   await app.register(metricsPlugin);
   await app.register(swaggerPlugin);
 
-  const sensiblePlugin = await import('@fastify/sensible');
+  const sensiblePlugin = await import("@fastify/sensible");
   await app.register(sensiblePlugin.default);
 
-  const cookiePlugin = await import('@fastify/cookie');
+  const cookiePlugin = await import("@fastify/cookie");
   await app.register(cookiePlugin.default);
 
   // CSRF defense-in-depth for cookie-bearing state changes (SECURITY.md §30/§74).
   // Registered after cookie parsing and CORS so it shares the origin allowlist.
   await app.register(csrfPlugin);
 
-  const helmetPlugin = await import('@fastify/helmet');
+  const helmetPlugin = await import("@fastify/helmet");
   await app.register(helmetPlugin.default, {
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'", "'unsafe-inline'"], // Swagger UI needs inline scripts
         styleSrc: ["'self'", "'unsafe-inline'"], // Swagger UI needs inline styles
-        imgSrc: ["'self'", 'data:', 'https:'],
+        imgSrc: ["'self'", "data:", "https:"],
         connectSrc: ["'self'"],
-        fontSrc: ["'self'", 'https:'],
+        fontSrc: ["'self'", "https:"],
         objectSrc: ["'none'"],
         upgradeInsecureRequests: [],
       },
       // Report-only in non-production so a bad directive doesn't break local dev.
-      reportOnly: process.env.NODE_ENV !== 'production',
+      reportOnly: process.env.NODE_ENV !== "production",
     },
     crossOriginEmbedderPolicy: false, // Swagger UI assets
-    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
     hsts: {
       maxAge: 31_536_000, // 1 year
       includeSubDomains: true,
@@ -94,7 +98,7 @@ export async function buildApp() {
     },
   });
 
-  const rateLimitPlugin = await import('@fastify/rate-limit');
+  const rateLimitPlugin = await import("@fastify/rate-limit");
   await app.register(rateLimitPlugin.default, {
     max: app.config.RATE_LIMIT_MAX,
     timeWindow: app.config.RATE_LIMIT_TIME_WINDOW,
@@ -120,8 +124,8 @@ export async function buildApp() {
     // correctly for both the global and per-route limiters.
     errorResponseBuilder: (_request, context) => {
       throw new RateLimitError(
-        'Too many requests. Please try again later.',
-        Math.ceil(context.ttl / 1000)
+        "Too many requests. Please try again later.",
+        Math.ceil(context.ttl / 1000),
       );
     },
   });
@@ -144,20 +148,21 @@ export async function buildApp() {
     async function apiRoutes(fastify) {
       await fastify.register(apiIndexRoutes);
       await fastify.register(healthRoutes);
-      await fastify.register(authRoutes, { prefix: '/auth' });
-      await fastify.register(authRecoveryRoutes, { prefix: '/auth' });
-      await fastify.register(userRoutes, { prefix: '/users' });
-      await fastify.register(exampleRoutes, { prefix: '/examples' });
-      await fastify.register(todoRoutes, { prefix: '/todos' });
-      await fastify.register(adminRoutes, { prefix: '/admin' });
-      await fastify.register(rolesRoutes, { prefix: '/admin' });
+      await fastify.register(brandingRoutes);
+      await fastify.register(authRoutes, { prefix: "/auth" });
+      await fastify.register(authRecoveryRoutes, { prefix: "/auth" });
+      await fastify.register(userRoutes, { prefix: "/users" });
+      await fastify.register(exampleRoutes, { prefix: "/examples" });
+      await fastify.register(todoRoutes, { prefix: "/todos" });
+      await fastify.register(adminRoutes, { prefix: "/admin" });
+      await fastify.register(rolesRoutes, { prefix: "/admin" });
     },
-    { prefix: `${app.config.API_PREFIX}/${app.config.API_VERSION}` }
+    { prefix: `${app.config.API_PREFIX}/${app.config.API_VERSION}` },
   );
 
   // ── Graceful shutdown log ────────────────────────────────────────────────────
-  app.addHook('onClose', async () => {
-    logger.info('Server is shutting down...');
+  app.addHook("onClose", async () => {
+    logger.info("Server is shutting down...");
   });
 
   return app;

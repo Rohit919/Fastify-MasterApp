@@ -1,6 +1,7 @@
 import { Outlet } from "react-router-dom";
-import { Zap, ShieldCheck, Users, Gauge } from "lucide-react";
+import { ShieldCheck, Users, Gauge } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { AppIcon, AppName, useBranding } from "@/branding";
 
 const HIGHLIGHTS = [
   {
@@ -28,7 +29,14 @@ const HIGHLIGHTS = [
  */
 export function AuthLayout() {
   const { t } = useTranslation();
+  const { branding } = useBranding();
   const year = new Date().getFullYear();
+  const tagline =
+    branding.metadata?.description ??
+    t("auth:tagline", {
+      defaultValue:
+        "Manage users, roles, and permissions from one secure control panel.",
+    });
 
   return (
     <div className="flex min-h-screen">
@@ -41,20 +49,17 @@ export function AuthLayout() {
 
         <div className="relative flex items-center gap-2.5 text-lg font-semibold">
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-sidebar-foreground/10 ring-1 ring-inset ring-sidebar-foreground/20 backdrop-blur">
-            <Zap className="h-5 w-5" />
+            <AppIcon className="h-5 w-5" imgClassName="h-6 w-6" />
           </span>
-          {t("common:appName")}
+          <AppName />
         </div>
 
         <div className="relative space-y-8">
           <div className="space-y-3">
             <h2 className="text-3xl font-semibold leading-tight tracking-tight">
-              Logistics Admin
+              <AppName />
             </h2>
-            <p className="max-w-sm text-sidebar-foreground/70">
-              Manage users, roles, and permissions from one secure control
-              panel.
-            </p>
+            <p className="max-w-sm text-sidebar-foreground/70">{tagline}</p>
           </div>
 
           <ul className="space-y-4">
@@ -73,7 +78,7 @@ export function AuthLayout() {
         </div>
 
         <p className="relative text-sm text-sidebar-foreground/50">
-          © {year} {t("common:appName")}
+          © {year} <AppName />
         </p>
       </div>
 
@@ -88,9 +93,9 @@ export function AuthLayout() {
         {/* Compact brand for mobile (brand panel is hidden < lg). */}
         <div className="relative mb-8 flex items-center gap-2 text-lg font-semibold lg:hidden">
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-            <Zap className="h-5 w-5" />
+            <AppIcon className="h-5 w-5" imgClassName="h-5 w-5" />
           </span>
-          {t("common:appName")}
+          <AppName />
         </div>
 
         <div className="relative w-full max-w-sm">

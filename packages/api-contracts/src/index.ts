@@ -8,6 +8,7 @@ export * from "./auth-otp.js";
 export * from "./users.js";
 export * from "./rbac.js";
 export * from "./dashboard.js";
+export * from "./branding.js";
 export * from "./todos.js";
 export * from "./examples.js";
 export * from "./endpoints/index.js";

@@ -1,10 +1,11 @@
-import { NavLink } from 'react-router-dom';
-import { Zap, X } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import { cn } from '@/lib/utils';
-import { usePermissions } from '@/modules/auth/hooks/use-permissions';
-import { NAV_ROUTES, NAV_SECTIONS } from '@/app/router/route-config';
-import { Button } from '@/components/ui/button';
+import { NavLink } from "react-router-dom";
+import { X } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { cn } from "@/lib/utils";
+import { usePermissions } from "@/modules/auth/hooks/use-permissions";
+import { NAV_ROUTES, NAV_SECTIONS } from "@/app/router/route-config";
+import { Button } from "@/components/ui/button";
+import { AppIcon, AppName } from "@/branding";
 
 /**
  * Permission-aware navigation. Each route declares the permission required to
@@ -22,7 +23,7 @@ export function Sidebar({
   const { t } = useTranslation();
 
   const visible = NAV_ROUTES.filter(
-    (r) => !r.hideInNav && (!r.permission || can(r.permission))
+    (r) => !r.hideInNav && (!r.permission || can(r.permission)),
   );
 
   return (
@@ -38,23 +39,23 @@ export function Sidebar({
 
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-sidebar text-sidebar-foreground transition-transform md:static md:translate-x-0',
-          mobileOpen ? 'translate-x-0' : '-translate-x-full'
+          "fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-sidebar text-sidebar-foreground transition-transform md:static md:translate-x-0",
+          mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
         <div className="flex h-14 items-center justify-between px-4">
           <div className="flex items-center gap-2 font-semibold">
             <span className="flex h-8 w-8 items-center justify-center rounded-md bg-sidebar-accent text-sidebar-accent-foreground">
-              <Zap className="h-4 w-4" />
+              <AppIcon className="h-4 w-4" imgClassName="h-4 w-4" />
             </span>
-            {t('common:appName')}
+            <AppName />
           </div>
           <Button
             variant="ghost"
             size="icon"
             className="text-sidebar-foreground md:hidden"
             onClick={onClose}
-            aria-label={t('common:actions.close')}
+            aria-label={t("common:actions.close")}
           >
             <X className="h-5 w-5" />
           </Button>
@@ -79,10 +80,10 @@ export function Sidebar({
                         onClick={onClose}
                         className={({ isActive }) =>
                           cn(
-                            'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                            "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                             isActive
-                              ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                              : 'text-sidebar-foreground/70 hover:bg-white/5 hover:text-sidebar-foreground'
+                              ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                              : "text-sidebar-foreground/70 hover:bg-white/5 hover:text-sidebar-foreground",
                           )
                         }
                       >

@@ -4,6 +4,32 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Admin · Logistics</title>
+    <!--
+      Pre-React branding bootstrap. Applies the last-good cached branding
+      (title + brand CSS variables) BEFORE the app mounts so tenants never see
+      a flash of the default brand. The BrandingProvider re-applies + revalidates
+      from the API once React is up. Cache shape mirrors AppBranding; values are
+      treated as plain text and only whitelisted CSS variables are set.
+    -->
+    <script>
+      (function () {
+        try {
+          var raw = localStorage.getItem('admin-branding');
+          if (!raw) return;
+          var b = JSON.parse(raw);
+          if (b && typeof b.appName === 'string') document.title = b.appName;
+          var root = document.documentElement;
+          var triplet = /^(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)%\s+(-?\d+(?:\.\d+)?)%$/;
+          if (b && b.colors && typeof b.colors.primary === 'string' && triplet.test(b.colors.primary)) {
+            root.style.setProperty('--primary', b.colors.primary);
+            root.style.setProperty('--ring', b.colors.primary);
+            root.style.setProperty('--sidebar-accent', b.colors.primary);
+          }
+        } catch (e) {
+          /* non-fatal — provider applies branding after mount */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root" class="min-h-screen"></div>

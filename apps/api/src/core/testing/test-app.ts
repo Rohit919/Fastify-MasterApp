@@ -15,6 +15,7 @@ import corsPlugin from "../../plugins/cors.js";
 import { registerErrorHandlers } from "../hooks/index.js";
 import rootRoutes from "../../modules/root/root.routes.js";
 import healthRoutes from "../../modules/health/health.routes.js";
+import brandingRoutes from "../../modules/branding/branding.routes.js";
 import authRoutes from "../../modules/auth/auth.routes.js";
 import authRecoveryRoutes from "../../modules/auth/auth-recovery.routes.js";
 import userRoutes from "../../modules/users/users.routes.js";
@@ -51,6 +52,9 @@ export const TEST_ENV: Env = {
   OTEL_ENABLED: false,
   OTEL_EXPORTER_OTLP_ENDPOINT: "http://localhost:4318/v1/traces",
   OTEL_SERVICE_NAME: "fastify-api-test",
+  BRAND_APP_NAME: "Admin · Logistics",
+  BRAND_SHORT_NAME: "Admin",
+  BRAND_COLOR_PRIMARY: "#4f46e5",
 };
 
 // ─── mock Prisma type ─────────────────────────────────────────────────────────
@@ -249,6 +253,7 @@ export async function buildTestApp(options: BuildTestAppOptions = {}) {
   await app.register(
     async (fastify) => {
       await fastify.register(healthRoutes);
+      await fastify.register(brandingRoutes);
       await fastify.register(authRoutes, { prefix: "/auth" });
       await fastify.register(authRecoveryRoutes, { prefix: "/auth" });
       await fastify.register(userRoutes, { prefix: "/users" });
