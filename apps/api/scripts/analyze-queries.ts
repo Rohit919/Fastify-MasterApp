@@ -5,7 +5,7 @@
  * Usage: tsx apps/api/scripts/analyze-queries.ts
  * Requires the pg_stat_statements extension (enabled in docker/init.sql).
  */
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "../src/generated/prisma/client.js";
 
 interface StatRow {
   query: string;

@@ -1,4 +1,4 @@
-import type { OrderStatus, PrismaClient } from "@prisma/client";
+import type { OrderStatus, PrismaClient } from "@/generated/prisma/client.js";
 import { ConflictError, NotFoundError } from "@core/errors/index.js";
 
 const includeItems = { items: true } as const;

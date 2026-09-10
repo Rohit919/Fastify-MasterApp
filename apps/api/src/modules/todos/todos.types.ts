@@ -1,5 +1,5 @@
 import type { OperationContext } from "@core/orchestration/index.js";
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient } from "@/generated/prisma/client.js";
 import type { Queue } from "bullmq";
 
 // Todo domain type — matches Prisma schema

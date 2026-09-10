@@ -23,7 +23,7 @@ import exampleRoutes from "../../modules/example/example.routes.js";
 import rolesRoutes from "../../modules/roles/roles.routes.js";
 import orderRoutes from "../../modules/orders/orders.routes.js";
 import type { Env } from "../../plugins/env.js";
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient } from "@/generated/prisma/client.js";
 import type { PermissionKey } from "@app/api-contracts";
 
 // ─── default test env ─────────────────────────────────────────────────────────

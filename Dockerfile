@@ -25,14 +25,14 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY packages/api-contracts/ ./packages/api-contracts/
 COPY apps/api/ ./apps/api/
 COPY prisma/ ./prisma/
+COPY prisma.config.ts ./
 COPY package.json package-lock.json ./
 
-# Build shared contracts then the API.
+# Generate the source-local Prisma client before compiling the API so tsup can
+# bundle it into dist, then build shared contracts and the service.
+RUN DATABASE_URL=postgresql://build:build@localhost:5432/build npx prisma generate
 RUN npm run build:contracts
 RUN npm run build --workspace @app/api
-
-# Generate Prisma client into dist so the runtime image has it.
-RUN npx prisma generate
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 3 — prod-deps: install production-only dependencies
@@ -68,9 +68,8 @@ WORKDIR /app
 # Production node_modules from prod-deps stage (npm workspaces hoists to root).
 COPY --from=prod-deps /app/node_modules ./node_modules
 
-# Compiled output + Prisma client from builder stage.
+# Compiled output (including the generated client) and Prisma runtime packages.
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
 # Prisma schema needed at runtime for migration checks.

@@ -1,5 +1,5 @@
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
-import type { OrderStatus as PrismaOrderStatus } from "@prisma/client";
+import type { OrderStatus as PrismaOrderStatus } from "@/generated/prisma/client.js";
 import {
   ORDER_CONTRACTS,
   PermissionKeys,

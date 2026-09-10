@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient } from "@/generated/prisma/client.js";
 import { RolesService } from "../roles.service.js";
 import { PermissionKeys, SystemRoles } from "@app/api-contracts";
 

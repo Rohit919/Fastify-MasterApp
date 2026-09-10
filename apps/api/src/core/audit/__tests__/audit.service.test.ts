@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient } from "@/generated/prisma/client.js";
 import type { FastifyRequest } from "fastify";
 import { AuditService, AuditActions } from "../audit.service.js";
 
@@ -60,7 +60,7 @@ describe("AuditService.record", () => {
     } as unknown as PrismaClient;
     const tx = {
       auditLog: { create: txCreate },
-    } as unknown as import("@prisma/client").Prisma.TransactionClient;
+    } as unknown as import("@/generated/prisma/client.js").Prisma.TransactionClient;
 
     const svc = new AuditService(prisma);
     await svc.record({ action: "ROLE_UPDATED" }, tx);

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { CreateTodoOrchestrator } from "../todos.orchestrator.js";
 import type { CreateTodoInput } from "../todos.types.js";
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient } from "@/generated/prisma/client.js";
 import { buildMockPrisma } from "@core/testing/test-app.js";
 
 // Mock Prisma Client

@@ -41,3 +41,6 @@ apps/admin/.vite/
 
 # Local reference material (not part of the project)
 /_Reference/
+
+# Generated Prisma client
+apps/api/src/generated/prisma/

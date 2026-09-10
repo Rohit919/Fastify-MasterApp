@@ -5,7 +5,7 @@ import {
   DefaultPerformanceTracker,
 } from "@core/orchestration/index.js";
 import type { PipelineStage } from "@core/orchestration/index.js";
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient } from "@/generated/prisma/client.js";
 import type {
   TodoPipelineContext,
   CreateTodoInput,

@@ -106,6 +106,8 @@ jobs:
         run: npx prisma migrate deploy
       - name: Verify migration state
         run: npx prisma migrate status
+      - name: Generate Prisma client
+        run: npx prisma generate
       - name: Run API tests with coverage
         run: npm run test:coverage --workspace @app/api
       - name: Run admin tests

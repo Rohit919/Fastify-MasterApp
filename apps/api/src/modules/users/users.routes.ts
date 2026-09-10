@@ -1,5 +1,5 @@
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "@/generated/prisma/client.js";
 import {
   USER_ROUTES,
   USER_CONTRACTS,

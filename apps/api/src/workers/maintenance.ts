@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient } from "@/generated/prisma/client.js";
 import type { Logger } from "pino";
 
 const DAY_MS = 24 * 60 * 60 * 1_000;

@@ -3,7 +3,7 @@ import "../telemetry.js";
 
 import { Redis } from "ioredis";
 import { Queue } from "bullmq";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "@/generated/prisma/client.js";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { createNotificationWorker } from "./notification.worker.js";
 import { startOutboxRelay } from "./outbox-relay.js";

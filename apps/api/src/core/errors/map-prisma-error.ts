@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Prisma } from "@/generated/prisma/client.js";
 import { AppError } from "./app-error.js";
 import { ConflictError } from "./conflict-error.js";
 import { NotFoundError } from "./not-found-error.js";

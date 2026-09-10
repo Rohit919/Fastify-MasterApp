@@ -1,6 +1,6 @@
 import type { Logger } from "pino";
 import type { FastifyBaseLogger } from "fastify";
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient } from "@/generated/prisma/client.js";
 import type { Queue } from "bullmq";
 import {
   BaseOrchestrator,

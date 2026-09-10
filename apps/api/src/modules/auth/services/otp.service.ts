@@ -5,7 +5,7 @@ import {
   randomBytes,
   timingSafeEqual,
 } from "node:crypto";
-import type { PrismaClient, OtpPurpose } from "@prisma/client";
+import type { PrismaClient, OtpPurpose } from "@/generated/prisma/client.js";
 
 /**
  * OTP service.

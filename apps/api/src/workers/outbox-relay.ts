@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient } from "@/generated/prisma/client.js";
 import type { Queue } from "bullmq";
 import type { Logger } from "pino";
 import { enqueueNotification } from "../queue/producer.js";
