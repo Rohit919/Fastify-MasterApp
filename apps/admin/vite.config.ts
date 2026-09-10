@@ -5,6 +5,9 @@ import path from "path";
 export default defineConfig({
   plugins: [react()],
   resolve: {
+    // npm workspaces may install a second React copy for Prisma Studio's peer
+    // tree. Force every browser dependency onto the admin application's copy.
+    dedupe: ["react", "react-dom"],
     alias: {
       "@": path.resolve(import.meta.dirname, "./src"),
       "@app/api-contracts": path.resolve(
