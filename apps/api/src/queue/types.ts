@@ -1,19 +1,32 @@
-/**
- * Job data contracts. These cross a process boundary (API → Redis → worker),
- * so they must be plain JSON-serializable objects — no class instances, no
- * Prisma models, no functions.
- */
-
-export interface NotificationJobData {
-  type: 'todo.created';
-  todoId: string;
-  userId: string;
-  title: string;
-  /** W3C traceparent for distributed-trace continuity into the worker. */
+/** JSON-only payloads crossing the API → Redis → worker boundary. */
+export interface TraceCarrier {
   _otel?: Record<string, string>;
 }
 
-/** Map of queue name → its job data type. Extend as queues are added. */
+export interface TodoCreatedJobData extends TraceCarrier {
+  type: "todo.created";
+  todoId: string;
+  userId: string;
+  title: string;
+}
+
+export interface OrderCreatedJobData extends TraceCarrier {
+  type: "order.created";
+  orderId: string;
+  userId: string;
+  totalCents: number;
+}
+
+export interface EmailJobData extends TraceCarrier {
+  type: "email.send";
+  to: string;
+  subject: string;
+  text: string;
+}
+
+export type NotificationJobData =
+  TodoCreatedJobData | OrderCreatedJobData | EmailJobData;
+
 export interface JobDataByQueue {
   notifications: NotificationJobData;
 }

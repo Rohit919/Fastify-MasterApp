@@ -1,9 +1,9 @@
-import type { PrismaClient } from '@prisma/client';
-import type { Logger } from 'pino';
-import type { Queue } from 'bullmq';
-import type { OrchestratorResult } from '@core/orchestration/index.js';
-import { CreateTodoOrchestrator } from './todos.orchestrator.js';
-import type { CreateTodoInput, Todo } from './todos.types.js';
+import type { PrismaClient } from "@/generated/prisma/client.js";
+import type { Logger } from "pino";
+import type { Queue } from "bullmq";
+import type { OrchestratorResult } from "@core/orchestration/index.js";
+import { CreateTodoOrchestrator } from "./todos.orchestrator.js";
+import type { CreateTodoInput, Todo } from "./todos.types.js";
 
 /**
  * TodoService — facade over the orchestrator.
@@ -12,15 +12,22 @@ import type { CreateTodoInput, Todo } from './todos.types.js';
 export class TodoService {
   constructor(
     private prisma: PrismaClient,
-    private notificationsQueue?: Queue
+    private notificationsQueue?: Queue,
   ) {}
 
-  public async createTodo(input: CreateTodoInput, log?: Logger): Promise<OrchestratorResult<Todo>> {
-    const orchestrator = new CreateTodoOrchestrator(this.prisma, this.notificationsQueue, log);
+  public async createTodo(
+    input: CreateTodoInput,
+    log?: Logger,
+  ): Promise<OrchestratorResult<Todo>> {
+    const orchestrator = new CreateTodoOrchestrator(
+      this.prisma,
+      this.notificationsQueue,
+      log,
+    );
     return orchestrator.execute(input);
   }
 
   public async healthCheck(): Promise<{ status: string; service: string }> {
-    return { status: 'healthy', service: 'TodoService' };
+    return { status: "healthy", service: "TodoService" };
   }
 }

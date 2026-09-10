@@ -1,4 +1,4 @@
-import { ErrorEnvelope } from '@app/api-contracts';
+import { ErrorEnvelope } from "@app/api-contracts";
 
 /**
  * Shared error-response schema for Swagger/OpenAPI (ERROR_HANDLING §58).
@@ -20,7 +20,8 @@ import { ErrorEnvelope } from '@app/api-contracts';
  */
 export const ErrorResponseSchema = ErrorEnvelope;
 
-export type ErrorStatus = 400 | 401 | 403 | 404 | 409 | 413 | 415 | 422 | 429 | 500 | 502 | 503;
+export type ErrorStatus =
+  400 | 401 | 403 | 404 | 409 | 413 | 415 | 422 | 429 | 500 | 502 | 503;
 
 export function errorResponses(
   ...statuses: ErrorStatus[]

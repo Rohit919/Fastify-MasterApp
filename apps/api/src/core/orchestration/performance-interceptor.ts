@@ -1,4 +1,4 @@
-import type { OperationContext, PipelineOperation } from './types.js';
+import type { OperationContext, PipelineOperation } from "./types.js";
 
 /**
  * Interceptor that automatically tracks performance for each pipeline operation
@@ -9,7 +9,7 @@ export class PerformanceInterceptor {
    */
   static wrap<TContext extends OperationContext>(
     operation: PipelineOperation<TContext>,
-    operationName: string
+    operationName: string,
   ): PipelineOperation<TContext> {
     return async (context: TContext): Promise<TContext> => {
       const startTime = Date.now();
@@ -41,8 +41,10 @@ export class PerformanceInterceptor {
    * Wraps all operations in a pipeline with performance tracking
    */
   static wrapPipeline<TContext extends OperationContext>(
-    operations: Array<{ name: string; operation: PipelineOperation<TContext> }>
+    operations: Array<{ name: string; operation: PipelineOperation<TContext> }>,
   ): PipelineOperation<TContext>[] {
-    return operations.map(({ name, operation }) => PerformanceInterceptor.wrap(operation, name));
+    return operations.map(({ name, operation }) =>
+      PerformanceInterceptor.wrap(operation, name),
+    );
   }
 }

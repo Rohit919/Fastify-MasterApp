@@ -1,9 +1,15 @@
-import fp from 'fastify-plugin';
-import { collectDefaultMetrics, register, Counter, Histogram, Gauge } from 'prom-client';
-import type { FastifyPluginAsync } from 'fastify';
+import fp from "fastify-plugin";
+import {
+  collectDefaultMetrics,
+  register,
+  Counter,
+  Histogram,
+  Gauge,
+} from "prom-client";
+import type { FastifyPluginAsync } from "fastify";
 
 // Extend Fastify instance type
-declare module 'fastify' {
+declare module "fastify" {
   interface FastifyInstance {
     metrics: {
       register: typeof register;
@@ -14,7 +20,6 @@ declare module 'fastify' {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/require-await
 const metricsPlugin: FastifyPluginAsync = async (fastify, _options) => {
   // Collect default metrics
   collectDefaultMetrics({ register });
@@ -29,22 +34,22 @@ const metricsPlugin: FastifyPluginAsync = async (fastify, _options) => {
   //     status code — a small fixed set instead of one series per code.
   //   - We never label by userId, email, requestId, or any user-controlled value.
   const httpRequestDuration = new Histogram({
-    name: 'http_request_duration_seconds',
-    help: 'Duration of HTTP requests in seconds',
-    labelNames: ['method', 'route', 'status_class'],
+    name: "http_request_duration_seconds",
+    help: "Duration of HTTP requests in seconds",
+    labelNames: ["method", "route", "status_class"],
     buckets: [0.001, 0.005, 0.015, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 1, 2, 5],
   });
 
   const httpRequestsTotal = new Counter({
-    name: 'http_requests_total',
-    help: 'Total number of HTTP requests',
-    labelNames: ['method', 'route', 'status_class'],
+    name: "http_requests_total",
+    help: "Total number of HTTP requests",
+    labelNames: ["method", "route", "status_class"],
   });
 
   const httpRequestsInProgress = new Gauge({
-    name: 'http_requests_in_progress',
-    help: 'Number of HTTP requests in progress',
-    labelNames: ['method'],
+    name: "http_requests_in_progress",
+    help: "Number of HTTP requests in progress",
+    labelNames: ["method"],
   });
 
   // Register metrics
@@ -53,7 +58,7 @@ const metricsPlugin: FastifyPluginAsync = async (fastify, _options) => {
   register.registerMetric(httpRequestsInProgress);
 
   // Decorate fastify with metrics
-  fastify.decorate('metrics', {
+  fastify.decorate("metrics", {
     register,
     httpRequestDuration,
     httpRequestsTotal,
@@ -61,7 +66,7 @@ const metricsPlugin: FastifyPluginAsync = async (fastify, _options) => {
   });
 
   // Add hooks to track metrics
-  fastify.addHook('onRequest', async (request, _reply) => {
+  fastify.addHook("onRequest", async (request, _reply) => {
     // Track in-progress requests
     httpRequestsInProgress.labels({ method: request.method }).inc();
 
@@ -69,7 +74,7 @@ const metricsPlugin: FastifyPluginAsync = async (fastify, _options) => {
     request.startHrTime = process.hrtime.bigint();
   });
 
-  fastify.addHook('onResponse', async (request, reply) => {
+  fastify.addHook("onResponse", async (request, reply) => {
     // Convert nanoseconds → seconds (Prometheus convention)
     const start = request.startHrTime ?? process.hrtime.bigint();
     const durationSeconds = Number(process.hrtime.bigint() - start) / 1e9;
@@ -78,7 +83,9 @@ const metricsPlugin: FastifyPluginAsync = async (fastify, _options) => {
     // make every unique path (?, ids, scanner probes) its own metric series —
     // unbounded cardinality. Collapse unmatched requests to a single bucket.
     const route =
-      request.routeOptions?.url ?? request.routeOptions?.config?.url ?? '__unmatched__';
+      request.routeOptions?.url ??
+      request.routeOptions?.config?.url ??
+      "__unmatched__";
 
     const statusClass = `${Math.floor(reply.statusCode / 100)}xx`;
 
@@ -102,7 +109,7 @@ const metricsPlugin: FastifyPluginAsync = async (fastify, _options) => {
       const durationMs = Math.round(durationSeconds * 1000);
       const isError = reply.statusCode >= 500;
       const logFields = {
-        event: isError ? 'request.failed' : 'request.completed',
+        event: isError ? "request.failed" : "request.completed",
         method: request.method,
         route,
         statusCode: reply.statusCode,
@@ -111,9 +118,9 @@ const metricsPlugin: FastifyPluginAsync = async (fastify, _options) => {
         requestId: request.id,
       };
       if (isError) {
-        request.log.error(logFields, 'request.failed');
+        request.log.error(logFields, "request.failed");
       } else {
-        request.log.info(logFields, 'request.completed');
+        request.log.info(logFields, "request.completed");
       }
     }
   });
@@ -124,9 +131,9 @@ const metricsPlugin: FastifyPluginAsync = async (fastify, _options) => {
     fastify.get(fastify.config.METRICS_PATH, async (request, reply) => {
       if (metricsToken) {
         const header = request.headers.authorization;
-        const provided = header?.startsWith('Bearer ') ? header.slice(7) : null;
+        const provided = header?.startsWith("Bearer ") ? header.slice(7) : null;
         if (provided !== metricsToken) {
-          return reply.status(401).send({ error: 'Unauthorized' });
+          return reply.status(401).send({ error: "Unauthorized" });
         }
       }
       const metrics = await register.metrics();
@@ -136,13 +143,13 @@ const metricsPlugin: FastifyPluginAsync = async (fastify, _options) => {
 };
 
 // Extend request type
-declare module 'fastify' {
+declare module "fastify" {
   interface FastifyRequest {
     startHrTime?: bigint;
   }
 }
 
 export default fp(metricsPlugin, {
-  name: 'metrics',
-  dependencies: ['env'],
+  name: "metrics",
+  dependencies: ["env"],
 });

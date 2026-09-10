@@ -1,4 +1,4 @@
-import { PerformanceTracker } from './types.js';
+import { PerformanceTracker } from "./types.js";
 
 /**
  * Default implementation of PerformanceTracker

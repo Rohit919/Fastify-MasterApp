@@ -1,9 +1,9 @@
-import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
+import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 
 // eslint-disable-next-line @typescript-eslint/require-await
 const rootRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
   fastify.get(
-    '/',
+    "/",
     {
       schema: {
         hide: true, // HTML landing page — not an API endpoint
@@ -71,8 +71,8 @@ const rootRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
 </body>
 </html>
     `;
-      return reply.type('text/html').send(html);
-    }
+      return reply.type("text/html").send(html);
+    },
   );
 };
 

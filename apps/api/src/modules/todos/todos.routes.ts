@@ -1,8 +1,16 @@
-import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
-import { TODO_CONTRACTS, toFastifySchema, type CreateTodoBody } from '@app/api-contracts';
-import { requireRolePermission, requireOwnership } from '@core/authorization/index.js';
-import { ValidationError } from '@core/errors/index.js';
-import { TodoService } from './todos.service.js';
+import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
+import {
+  TODO_CONTRACTS,
+  PermissionKeys,
+  toFastifySchema,
+  type CreateTodoBody,
+} from "@app/api-contracts";
+import {
+  requirePermission,
+  requireOwnership,
+} from "@core/authorization/index.js";
+import { ValidationError } from "@core/errors/index.js";
+import { TodoService } from "./todos.service.js";
 
 /**
  * Todos module routes — demonstrates the Golden Orchestrator pattern.
@@ -12,37 +20,56 @@ import { TodoService } from './todos.service.js';
  */
 const todoRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
   // Pass the notifications queue when available (absent in test harness).
-  const todoService = new TodoService(fastify.prisma, fastify.queues?.notifications);
+  const todoService = new TodoService(
+    fastify.prisma,
+    fastify.queues?.notifications,
+  );
 
   // ── POST / (orchestrated create) ─────────────────────────────────────────────
   fastify.post(
-    '/',
+    "/",
     {
       preValidation: [fastify.authenticate],
+      preHandler: [requirePermission(PermissionKeys.TodosCreate)],
       schema: toFastifySchema(TODO_CONTRACTS.CREATE),
     },
     async (request, reply) => {
       const body = request.body as CreateTodoBody;
+      const rawIdempotencyKey = request.headers["idempotency-key"];
+      const idempotencyKey = Array.isArray(rawIdempotencyKey)
+        ? rawIdempotencyKey[0]
+        : rawIdempotencyKey;
+      if (
+        idempotencyKey &&
+        (idempotencyKey.length > 128 || !/^[\x21-\x7E]+$/.test(idempotencyKey))
+      ) {
+        throw new ValidationError(
+          "Idempotency-Key must be 1–128 visible ASCII characters",
+        );
+      }
       const result = await todoService.createTodo(
         {
           title: body.title,
           description: body.description,
           userId: request.user.id,
+          idempotencyKey,
         },
-        request.log as unknown as import('pino').Logger
+        request.log as unknown as import("pino").Logger,
       );
 
       if (!result.success) {
         // Route through the global handler for the canonical error envelope
         // with a stable code (API_CONVENTIONS §39).
-        throw new ValidationError(result.error?.message ?? 'Failed to create todo');
+        throw new ValidationError(
+          result.error?.message ?? "Failed to create todo",
+        );
       }
 
       return reply.status(201).send({
         success: true,
         data: {
           ...result.data!,
-          description: result.data!.description ?? '',
+          description: result.data!.description ?? "",
           createdAt: result.data!.createdAt.toISOString(),
           updatedAt: result.data!.updatedAt.toISOString(),
         },
@@ -51,59 +78,66 @@ const todoRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
           metrics: result.metrics,
         },
       });
-    }
+    },
   );
 
   // ── GET /health ──────────────────────────────────────────────────────────────
   fastify.get(
-    '/health',
+    "/health",
     {
       schema: toFastifySchema(TODO_CONTRACTS.HEALTH),
     },
     async (_request, reply) => {
       const health = await todoService.healthCheck();
       return reply.send(health);
-    }
+    },
   );
 
   // ── GET / (list) ─────────────────────────────────────────────────────────────
   fastify.get(
-    '/',
+    "/",
     {
       preValidation: [fastify.authenticate],
+      preHandler: [requirePermission(PermissionKeys.TodosRead)],
       schema: toFastifySchema(TODO_CONTRACTS.LIST),
     },
     async (request, reply) => {
       const todos = await fastify.prisma.todo.findMany({
         where: { userId: request.user.id },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         select: { id: true, title: true, description: true, completed: true },
       });
 
       return reply.send({
         success: true,
-        data: todos.map((todo) => ({ ...todo, description: todo.description ?? '' })),
+        data: todos.map((todo) => ({
+          ...todo,
+          description: todo.description ?? "",
+        })),
       });
-    }
+    },
   );
 
   // ── GET /:id ─── RBAC + ownership demonstration ─────────────────────────────
   // requireRolePermission gates by role; requireOwnership ensures a 'user' can
   // only read their own todo (admins bypass ownership).
   fastify.get(
-    '/:id',
+    "/:id",
     {
       preValidation: [fastify.authenticate],
       preHandler: [
-        requireRolePermission('todo', 'read'),
-        requireOwnership(async (req) => {
-          const { id } = req.params as { id: string };
-          const todo = await fastify.prisma.todo.findUnique({
-            where: { id },
-            select: { userId: true },
-          });
-          return todo?.userId;
-        }),
+        requirePermission(PermissionKeys.TodosRead),
+        requireOwnership(
+          async (req) => {
+            const { id } = req.params as { id: string };
+            const todo = await fastify.prisma.todo.findUnique({
+              where: { id },
+              select: { userId: true },
+            });
+            return todo?.userId;
+          },
+          { bypassPermission: PermissionKeys.TodosReadAll },
+        ),
       ],
       schema: toFastifySchema(TODO_CONTRACTS.GET_BY_ID),
     },
@@ -116,9 +150,9 @@ const todoRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
       // Ownership preHandler already guaranteed existence + access.
       return reply.send({
         success: true,
-        data: { ...todo!, description: todo!.description ?? '' },
+        data: { ...todo!, description: todo!.description ?? "" },
       });
-    }
+    },
   );
 };
 

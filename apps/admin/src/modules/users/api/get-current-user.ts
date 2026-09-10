@@ -1,8 +1,8 @@
-import { apiClient } from '@/lib/api-client';
-import { API_CONTRACTS, type MeResponse } from '@app/api-contracts';
+import { apiClient } from "@/lib/api-client";
+import { API_CONTRACTS, type MeResponse } from "@app/api-contracts";
 
 /** The `/users/me` payload — profile plus effective roles and permissions. */
-export type CurrentUser = MeResponse['data'];
+export type CurrentUser = MeResponse["data"];
 
 /**
  * GET /api/v1/users/me — the authenticated user's profile + effective

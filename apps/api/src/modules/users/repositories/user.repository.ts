@@ -1,5 +1,5 @@
-import type { PrismaClient } from '@prisma/client';
-import { mapPrismaError } from '@core/errors/index.js';
+import type { PrismaClient } from "@/generated/prisma/client.js";
+import { mapPrismaError } from "@core/errors/index.js";
 
 /**
  * UserRepository — data access for the users module.
@@ -25,7 +25,7 @@ export class UserRepository {
         },
       });
     } catch (err) {
-      throw mapPrismaError(err, { resource: 'User' });
+      throw mapPrismaError(err, { resource: "User" });
     }
   }
 }

@@ -5,7 +5,7 @@
  * Usage: tsx apps/api/scripts/analyze-queries.ts
  * Requires the pg_stat_statements extension (enabled in docker/init.sql).
  */
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from "../src/generated/prisma/client.js";
 
 interface StatRow {
   query: string;
@@ -33,18 +33,18 @@ async function main(): Promise<void> {
 
     const fmt = (rows: StatRow[]) =>
       rows.map((r, i) => {
-        const q = r.query.replace(/\s+/g, ' ').slice(0, 90);
+        const q = r.query.replace(/\s+/g, " ").slice(0, 90);
         return `${String(i + 1).padStart(2)}. calls=${r.calls} mean=${r.mean_exec_time.toFixed(2)}ms total=${r.total_exec_time.toFixed(0)}ms\n    ${q}`;
       });
 
-    console.log('\n=== Top 10 queries by TOTAL time ===');
-    console.log(fmt(byTotal).join('\n'));
-    console.log('\n=== Top 10 queries by CALL count (N+1 suspects) ===');
-    console.log(fmt(byCalls).join('\n'));
+    console.log("\n=== Top 10 queries by TOTAL time ===");
+    console.log(fmt(byTotal).join("\n"));
+    console.log("\n=== Top 10 queries by CALL count (N+1 suspects) ===");
+    console.log(fmt(byCalls).join("\n"));
   } catch (err) {
     console.error(
-      'Failed to read pg_stat_statements. Is the extension enabled and shared_preload_libraries set?',
-      err
+      "Failed to read pg_stat_statements. Is the extension enabled and shared_preload_libraries set?",
+      err,
     );
     process.exitCode = 1;
   } finally {

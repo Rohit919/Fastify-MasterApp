@@ -1,5 +1,5 @@
-import { AppError } from './app-error.js';
-import { ErrorCode } from './error-codes.js';
+import { AppError } from "./app-error.js";
+import { ErrorCode } from "./error-codes.js";
 
 /**
  * Thrown when a circuit breaker is OPEN — the wrapped call fails fast without
@@ -12,8 +12,8 @@ export class CircuitOpenError extends AppError {
       503,
       true,
       undefined,
-      ErrorCode.SERVICE_UNAVAILABLE
+      ErrorCode.SERVICE_UNAVAILABLE,
     );
-    this.name = 'CircuitOpenError';
+    this.name = "CircuitOpenError";
   }
 }

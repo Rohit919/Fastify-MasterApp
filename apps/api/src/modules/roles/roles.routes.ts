@@ -1,9 +1,13 @@
-import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
-import { ROLE_CONTRACTS, PERMISSION_CONTRACTS, USER_ROLE_CONTRACTS } from '@app/api-contracts';
-import type { PermissionKey } from '@app/api-contracts';
-import { requirePermission } from '@core/authorization/index.js';
-import { AuditService } from '@core/audit/index.js';
-import { RolesService } from './roles.service.js';
+import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
+import {
+  ROLE_CONTRACTS,
+  PERMISSION_CONTRACTS,
+  USER_ROLE_CONTRACTS,
+} from "@app/api-contracts";
+import type { PermissionKey } from "@app/api-contracts";
+import { requirePermission } from "@core/authorization/index.js";
+import { AuditService } from "@core/audit/index.js";
+import { RolesService } from "./roles.service.js";
 
 /**
  * Admin RBAC management — consumes the shared Level 2 contracts
@@ -17,10 +21,12 @@ const rolesRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
 
   // ── GET /roles ──────────────────────────────────────────────────────────────
   fastify.get(
-    '/roles',
+    "/roles",
     {
       preValidation: [fastify.authenticate],
-      preHandler: [requirePermission(ROLE_CONTRACTS.LIST.permission as PermissionKey)],
+      preHandler: [
+        requirePermission(ROLE_CONTRACTS.LIST.permission as PermissionKey),
+      ],
       schema: {
         summary: ROLE_CONTRACTS.LIST.summary,
         tags: ROLE_CONTRACTS.LIST.tags,
@@ -32,15 +38,17 @@ const rolesRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
     async (_request, reply) => {
       const data = await service.listRoles();
       return reply.send({ success: true, data });
-    }
+    },
   );
 
   // ── POST /roles ─────────────────────────────────────────────────────────────
   fastify.post(
-    '/roles',
+    "/roles",
     {
       preValidation: [fastify.authenticate],
-      preHandler: [requirePermission(ROLE_CONTRACTS.CREATE.permission as PermissionKey)],
+      preHandler: [
+        requirePermission(ROLE_CONTRACTS.CREATE.permission as PermissionKey),
+      ],
       schema: {
         summary: ROLE_CONTRACTS.CREATE.summary,
         tags: ROLE_CONTRACTS.CREATE.tags,
@@ -51,22 +59,26 @@ const rolesRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const isSuperAdmin = await fastify.authorization.isSuperAdmin(request.user.id);
+      const isSuperAdmin = await fastify.authorization.isSuperAdmin(
+        request.user.id,
+      );
       const data = await service.createRole(
         request.body,
         { userId: request.user.id, isSuperAdmin },
-        AuditService.contextFrom(request)
+        AuditService.contextFrom(request),
       );
       return reply.status(201).send({ success: true, data });
-    }
+    },
   );
 
   // ── GET /roles/:id ──────────────────────────────────────────────────────────
   fastify.get(
-    '/roles/:id',
+    "/roles/:id",
     {
       preValidation: [fastify.authenticate],
-      preHandler: [requirePermission(ROLE_CONTRACTS.GET_BY_ID.permission as PermissionKey)],
+      preHandler: [
+        requirePermission(ROLE_CONTRACTS.GET_BY_ID.permission as PermissionKey),
+      ],
       schema: {
         summary: ROLE_CONTRACTS.GET_BY_ID.summary,
         tags: ROLE_CONTRACTS.GET_BY_ID.tags,
@@ -79,15 +91,17 @@ const rolesRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
     async (request, reply) => {
       const data = await service.getRole(request.params.id);
       return reply.send({ success: true, data });
-    }
+    },
   );
 
   // ── PATCH /roles/:id ──────────────────────────────────────────────────────────
   fastify.patch(
-    '/roles/:id',
+    "/roles/:id",
     {
       preValidation: [fastify.authenticate],
-      preHandler: [requirePermission(ROLE_CONTRACTS.UPDATE.permission as PermissionKey)],
+      preHandler: [
+        requirePermission(ROLE_CONTRACTS.UPDATE.permission as PermissionKey),
+      ],
       schema: {
         summary: ROLE_CONTRACTS.UPDATE.summary,
         tags: ROLE_CONTRACTS.UPDATE.tags,
@@ -99,23 +113,29 @@ const rolesRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const isSuperAdmin = await fastify.authorization.isSuperAdmin(request.user.id);
+      const isSuperAdmin = await fastify.authorization.isSuperAdmin(
+        request.user.id,
+      );
       const data = await service.updateRole(
         request.params.id,
         request.body,
         { userId: request.user.id, isSuperAdmin },
-        AuditService.contextFrom(request)
+        AuditService.contextFrom(request),
       );
       return reply.send({ success: true, data });
-    }
+    },
   );
 
   // ── PUT /roles/:id/permissions ────────────────────────────────────────────────
   fastify.put(
-    '/roles/:id/permissions',
+    "/roles/:id/permissions",
     {
       preValidation: [fastify.authenticate],
-      preHandler: [requirePermission(ROLE_CONTRACTS.SET_PERMISSIONS.permission as PermissionKey)],
+      preHandler: [
+        requirePermission(
+          ROLE_CONTRACTS.SET_PERMISSIONS.permission as PermissionKey,
+        ),
+      ],
       schema: {
         summary: ROLE_CONTRACTS.SET_PERMISSIONS.summary,
         tags: ROLE_CONTRACTS.SET_PERMISSIONS.tags,
@@ -127,23 +147,27 @@ const rolesRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const isSuperAdmin = await fastify.authorization.isSuperAdmin(request.user.id);
+      const isSuperAdmin = await fastify.authorization.isSuperAdmin(
+        request.user.id,
+      );
       const data = await service.setRolePermissions(
         request.params.id,
         request.body.permissions,
         { userId: request.user.id, isSuperAdmin },
-        AuditService.contextFrom(request)
+        AuditService.contextFrom(request),
       );
       return reply.send({ success: true, data });
-    }
+    },
   );
 
   // ── DELETE /roles/:id ───────────────────────────────────────────────────────
   fastify.delete(
-    '/roles/:id',
+    "/roles/:id",
     {
       preValidation: [fastify.authenticate],
-      preHandler: [requirePermission(ROLE_CONTRACTS.DELETE.permission as PermissionKey)],
+      preHandler: [
+        requirePermission(ROLE_CONTRACTS.DELETE.permission as PermissionKey),
+      ],
       schema: {
         summary: ROLE_CONTRACTS.DELETE.summary,
         tags: ROLE_CONTRACTS.DELETE.tags,
@@ -154,17 +178,24 @@ const rolesRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
       },
     },
     async (request, reply) => {
-      await service.deleteRole(request.params.id, AuditService.contextFrom(request));
-      return reply.send({ success: true, data: { message: 'Role deleted' } });
-    }
+      await service.deleteRole(
+        request.params.id,
+        AuditService.contextFrom(request),
+      );
+      return reply.send({ success: true, data: { message: "Role deleted" } });
+    },
   );
 
   // ── GET /permissions ──────────────────────────────────────────────────────────
   fastify.get(
-    '/permissions',
+    "/permissions",
     {
       preValidation: [fastify.authenticate],
-      preHandler: [requirePermission(PERMISSION_CONTRACTS.LIST.permission as PermissionKey)],
+      preHandler: [
+        requirePermission(
+          PERMISSION_CONTRACTS.LIST.permission as PermissionKey,
+        ),
+      ],
       schema: {
         summary: PERMISSION_CONTRACTS.LIST.summary,
         tags: PERMISSION_CONTRACTS.LIST.tags,
@@ -177,17 +208,23 @@ const rolesRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
       const perms = await service.listPermissions();
       return reply.send({
         success: true,
-        data: perms.map((p) => ({ id: p.id, key: p.key, description: p.description })),
+        data: perms.map((p) => ({
+          id: p.id,
+          key: p.key,
+          description: p.description,
+        })),
       });
-    }
+    },
   );
 
   // ── GET /users/:id/roles ──────────────────────────────────────────────────────
   fastify.get(
-    '/users/:id/roles',
+    "/users/:id/roles",
     {
       preValidation: [fastify.authenticate],
-      preHandler: [requirePermission(USER_ROLE_CONTRACTS.GET.permission as PermissionKey)],
+      preHandler: [
+        requirePermission(USER_ROLE_CONTRACTS.GET.permission as PermissionKey),
+      ],
       schema: {
         summary: USER_ROLE_CONTRACTS.GET.summary,
         tags: USER_ROLE_CONTRACTS.GET.tags,
@@ -199,16 +236,21 @@ const rolesRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
     },
     async (request, reply) => {
       const roles = await service.getUserRoles(request.params.id);
-      return reply.send({ success: true, data: { userId: request.params.id, roles } });
-    }
+      return reply.send({
+        success: true,
+        data: { userId: request.params.id, roles },
+      });
+    },
   );
 
   // ── PUT /users/:id/roles ──────────────────────────────────────────────────────
   fastify.put(
-    '/users/:id/roles',
+    "/users/:id/roles",
     {
       preValidation: [fastify.authenticate],
-      preHandler: [requirePermission(USER_ROLE_CONTRACTS.SET.permission as PermissionKey)],
+      preHandler: [
+        requirePermission(USER_ROLE_CONTRACTS.SET.permission as PermissionKey),
+      ],
       schema: {
         summary: USER_ROLE_CONTRACTS.SET.summary,
         tags: USER_ROLE_CONTRACTS.SET.tags,
@@ -220,15 +262,20 @@ const rolesRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const isSuperAdmin = await fastify.authorization.isSuperAdmin(request.user.id);
+      const isSuperAdmin = await fastify.authorization.isSuperAdmin(
+        request.user.id,
+      );
       const roles = await service.setUserRoles(
         request.params.id,
         request.body.roles,
         { userId: request.user.id, isSuperAdmin },
-        AuditService.contextFrom(request)
+        AuditService.contextFrom(request),
       );
-      return reply.send({ success: true, data: { userId: request.params.id, roles } });
-    }
+      return reply.send({
+        success: true,
+        data: { userId: request.params.id, roles },
+      });
+    },
   );
 };
 

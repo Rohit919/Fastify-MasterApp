@@ -1,6 +1,6 @@
-import type { ReactNode } from 'react';
-import { usePermissions } from '@/modules/auth/hooks/use-permissions';
-import type { PermissionKey } from '@app/api-contracts';
+import type { ReactNode } from "react";
+import { usePermissions } from "@/modules/auth/hooks/use-permissions";
+import type { PermissionKey } from "@app/api-contracts";
 
 interface PermissionGateProps {
   /** Render children only if the user holds this permission. */

@@ -1,4 +1,4 @@
-import type { Env } from './env.js';
+import type { Env } from "./env.js";
 
 /**
  * Typed, derived configuration helpers.
@@ -20,10 +20,10 @@ export interface AppConfig {
 
 export function deriveConfig(env: Env): AppConfig {
   return {
-    isProduction: env.NODE_ENV === 'production',
-    isDevelopment: env.NODE_ENV === 'development',
-    isTest: env.NODE_ENV === 'test',
+    isProduction: env.NODE_ENV === "production",
+    isDevelopment: env.NODE_ENV === "development",
+    isTest: env.NODE_ENV === "test",
     apiBasePath: `${env.API_PREFIX}/${env.API_VERSION}`,
-    corsOrigins: env.CORS_ORIGIN.split(',').map((o) => o.trim()),
+    corsOrigins: env.CORS_ORIGIN.split(",").map((o) => o.trim()),
   };
 }

@@ -8,5 +8,5 @@
  * production; the endpoint paths already carry the `/api/v1` prefix.
  */
 export const config = {
-  apiBaseUrl: (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '',
+  apiBaseUrl: (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "",
 } as const;

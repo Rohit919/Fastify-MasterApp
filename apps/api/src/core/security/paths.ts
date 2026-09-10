@@ -9,16 +9,16 @@
  * Prefer opaque IDs + generated filenames over echoing client filenames
  * (SECURITY.md §23/§24): use {@link safeFilename} for anything persisted.
  */
-import { resolve, sep, basename, extname } from 'node:path';
-import { randomUUID } from 'node:crypto';
-import { AppError } from '@core/errors/app-error.js';
-import { ErrorCode } from '@core/errors/error-codes.js';
+import { resolve, sep, basename, extname } from "node:path";
+import { randomUUID } from "node:crypto";
+import { AppError } from "@core/errors/app-error.js";
+import { ErrorCode } from "@core/errors/error-codes.js";
 
 /** Thrown when a resolved path escapes its allowed base directory. */
 export class PathTraversalError extends AppError {
-  constructor(message = 'Invalid path.') {
+  constructor(message = "Invalid path.") {
     super(message, 400, true, undefined, ErrorCode.PATH_TRAVERSAL_BLOCKED);
-    this.name = 'PathTraversalError';
+    this.name = "PathTraversalError";
   }
 }
 
@@ -32,8 +32,11 @@ const CONTROL_CHARS = /[\u0000-\u001f]/;
  *
  *   const p = resolveWithinBase('/srv/uploads', req.params.file);
  */
-export function resolveWithinBase(baseDir: string, userSegment: string): string {
-  if (typeof userSegment !== 'string' || userSegment.length === 0) {
+export function resolveWithinBase(
+  baseDir: string,
+  userSegment: string,
+): string {
+  if (typeof userSegment !== "string" || userSegment.length === 0) {
     throw new PathTraversalError();
   }
   if (CONTROL_CHARS.test(userSegment)) {
@@ -73,13 +76,21 @@ export function isWithinBase(baseDir: string, userSegment: string): boolean {
  * @param allowedExtensions optional lowercase extensions without the dot; if
  *        set and the original extension is not listed, the extension is dropped.
  */
-export function safeFilename(originalName: string, allowedExtensions?: string[]): string {
+export function safeFilename(
+  originalName: string,
+  allowedExtensions?: string[],
+): string {
   const id = randomUUID();
-  const raw = extname(basename(originalName || '')).replace(/^\./, '').toLowerCase();
+  const raw = extname(basename(originalName || ""))
+    .replace(/^\./, "")
+    .toLowerCase();
   // Only permit a conservative, single, alphanumeric extension.
-  const ext = /^[a-z0-9]{1,12}$/.test(raw) ? raw : '';
+  const ext = /^[a-z0-9]{1,12}$/.test(raw) ? raw : "";
   if (!ext) return id;
-  if (allowedExtensions && !allowedExtensions.map((e) => e.toLowerCase()).includes(ext)) {
+  if (
+    allowedExtensions &&
+    !allowedExtensions.map((e) => e.toLowerCase()).includes(ext)
+  ) {
     return id;
   }
   return `${id}.${ext}`;

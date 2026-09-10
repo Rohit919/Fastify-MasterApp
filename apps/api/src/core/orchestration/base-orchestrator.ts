@@ -1,15 +1,19 @@
-import type { Logger } from 'pino';
+import type { Logger } from "pino";
+import type { FastifyBaseLogger } from "fastify";
 import type {
   OperationContext,
   OrchestratorConfig,
   OrchestratorResult,
   OrchestratorError,
   PipelineStage,
-} from './types.js';
-import { PerformanceInterceptor } from './performance-interceptor.js';
-import { DefaultPerformanceTracker, NullPerformanceTracker } from './performance-tracker.js';
-import { OrchestratorMetrics } from './orchestrator-metrics.js';
-import { logger as defaultLogger } from '../utils/logger.js';
+} from "./types.js";
+import { PerformanceInterceptor } from "./performance-interceptor.js";
+import {
+  DefaultPerformanceTracker,
+  NullPerformanceTracker,
+} from "./performance-tracker.js";
+import { OrchestratorMetrics } from "./orchestrator-metrics.js";
+import { logger as defaultLogger } from "../utils/logger.js";
 
 /**
  * Abstract base class for all orchestrators following the golden pattern
@@ -20,9 +24,9 @@ export abstract class BaseOrchestrator<
   TInput = unknown,
 > {
   protected config: Required<OrchestratorConfig>;
-  protected log: Logger;
+  protected log: Logger | FastifyBaseLogger;
 
-  constructor(config: OrchestratorConfig, log?: Logger) {
+  constructor(config: OrchestratorConfig, log?: Logger | FastifyBaseLogger) {
     this.config = {
       name: config.name,
       timeout: config.timeout ?? 30000,
@@ -87,8 +91,8 @@ export abstract class BaseOrchestrator<
       // Record success metrics
       if (this.config.enableMetrics) {
         OrchestratorMetrics.pipelineDuration.observe(
-          { service: this.config.name, status: 'success' },
-          duration
+          { service: this.config.name, status: "success" },
+          duration,
         );
         OrchestratorMetrics.activeOperations.dec({ service: this.config.name });
       }
@@ -105,15 +109,18 @@ export abstract class BaseOrchestrator<
       // Record error metrics
       if (this.config.enableMetrics) {
         OrchestratorMetrics.pipelineDuration.observe(
-          { service: this.config.name, status: 'error' },
-          duration
+          { service: this.config.name, status: "error" },
+          duration,
         );
-        OrchestratorMetrics.pipelineErrors.inc({ service: this.config.name, stage: 'unknown' });
+        OrchestratorMetrics.pipelineErrors.inc({
+          service: this.config.name,
+          stage: "unknown",
+        });
         OrchestratorMetrics.activeOperations.dec({ service: this.config.name });
       }
 
       if (this.config.logErrors) {
-        this.log.error({ err: error }, 'Orchestration error');
+        this.log.error({ err: error }, "Orchestration error");
       }
 
       return {
@@ -130,14 +137,14 @@ export abstract class BaseOrchestrator<
    */
   private async runPipelineWithTimeout(
     context: TContext,
-    pipeline: PipelineStage<TContext>[]
+    pipeline: PipelineStage<TContext>[],
   ): Promise<TContext> {
     return new Promise((resolve, reject) => {
       const timeoutId = setTimeout(() => {
         reject(
           new Error(
-            `Pipeline timeout after ${this.config.timeout}ms in orchestrator: ${this.config.name}`
-          ) as OrchestratorError
+            `Pipeline timeout after ${this.config.timeout}ms in orchestrator: ${this.config.name}`,
+          ) as OrchestratorError,
         );
       }, this.config.timeout);
 
@@ -158,7 +165,7 @@ export abstract class BaseOrchestrator<
    */
   private async runPipeline(
     context: TContext,
-    pipeline: PipelineStage<TContext>[]
+    pipeline: PipelineStage<TContext>[],
   ): Promise<TContext> {
     let currentContext = context;
 
@@ -166,7 +173,10 @@ export abstract class BaseOrchestrator<
       const stageStartTime = Date.now();
       try {
         // Wrap operation with performance tracking
-        const wrappedOperation = PerformanceInterceptor.wrap(stage.operation, stage.name);
+        const wrappedOperation = PerformanceInterceptor.wrap(
+          stage.operation,
+          stage.name,
+        );
 
         // Apply stage-specific timeout if provided
         if (stage.timeout) {
@@ -174,7 +184,7 @@ export abstract class BaseOrchestrator<
             wrappedOperation,
             currentContext,
             stage.timeout,
-            stage.name
+            stage.name,
           );
         } else {
           currentContext = await wrappedOperation(currentContext);
@@ -185,7 +195,7 @@ export abstract class BaseOrchestrator<
           const stageDuration = Date.now() - stageStartTime;
           OrchestratorMetrics.stageLatency.observe(
             { service: this.config.name, stage: stage.name },
-            stageDuration
+            stageDuration,
           );
         }
       } catch (error) {
@@ -200,17 +210,22 @@ export abstract class BaseOrchestrator<
         // If stage is critical, fail the entire pipeline
         if (stage.critical) {
           throw new Error(
-            `Critical stage '${stage.name}' failed: ${error instanceof Error ? error.message : String(error)}`
+            `Critical stage '${stage.name}' failed: ${error instanceof Error ? error.message : String(error)}`,
           ) as OrchestratorError;
         }
 
         // For non-critical stages, log error and continue
         if (this.config.logErrors) {
-          this.log.warn({ err: error, stage: stage.name }, 'Non-critical stage failed');
+          this.log.warn(
+            { err: error, stage: stage.name },
+            "Non-critical stage failed",
+          );
         }
 
         // Add error to context
-        currentContext.errors.push(error instanceof Error ? error : new Error(String(error)));
+        currentContext.errors.push(
+          error instanceof Error ? error : new Error(String(error)),
+        );
       }
     }
 
@@ -224,11 +239,15 @@ export abstract class BaseOrchestrator<
     operation: (context: TContext) => Promise<T>,
     context: TContext,
     timeout: number,
-    stageName: string
+    stageName: string,
   ): Promise<T> {
     return new Promise((resolve, reject) => {
       const timeoutId = setTimeout(() => {
-        reject(new Error(`Stage '${stageName}' timeout after ${timeout}ms`) as OrchestratorError);
+        reject(
+          new Error(
+            `Stage '${stageName}' timeout after ${timeout}ms`,
+          ) as OrchestratorError,
+        );
       }, timeout);
 
       operation(context)

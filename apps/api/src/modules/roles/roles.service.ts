@@ -1,19 +1,26 @@
-import type { PrismaClient, Prisma } from '@prisma/client';
+import type { PrismaClient, Prisma } from "@/generated/prisma/client.js";
 import {
   isPermissionKey,
   SystemRoles,
   type PermissionKey,
   type RoleDto,
-} from '@app/api-contracts';
+} from "@app/api-contracts";
 import {
   ValidationError,
   NotFoundError,
   ForbiddenError,
   ConflictError,
-} from '@core/errors/index.js';
-import { AuditService, AuditActions, type AuditEntry } from '@core/audit/index.js';
+} from "@core/errors/index.js";
+import {
+  AuditService,
+  AuditActions,
+  type AuditEntry,
+} from "@core/audit/index.js";
 
-type AuditContext = Pick<AuditEntry, 'actorId' | 'requestId' | 'ip' | 'userAgent'>;
+type AuditContext = Pick<
+  AuditEntry,
+  "actorId" | "requestId" | "ip" | "userAgent"
+>;
 
 /**
  * Roles service — owns all role/permission mutations.
@@ -36,7 +43,7 @@ export class RolesService {
 
   async listRoles(): Promise<RoleDto[]> {
     const roles = await this.prisma.role.findMany({
-      orderBy: { name: 'asc' },
+      orderBy: { name: "asc" },
       include: { permissions: { include: { permission: true } } },
     });
     return roles.map(toRoleDto);
@@ -47,12 +54,12 @@ export class RolesService {
       where: { id },
       include: { permissions: { include: { permission: true } } },
     });
-    if (!role) throw new NotFoundError('Role not found');
+    if (!role) throw new NotFoundError("Role not found");
     return toRoleDto(role);
   }
 
   async listPermissions() {
-    return this.prisma.permission.findMany({ orderBy: { key: 'asc' } });
+    return this.prisma.permission.findMany({ orderBy: { key: "asc" } });
   }
 
   async getUserRoles(userId: string): Promise<string[]> {
@@ -72,18 +79,19 @@ export class RolesService {
   async createRole(
     input: { name: string; description?: string; permissions?: string[] },
     actor: { userId: string; isSuperAdmin: boolean },
-    auditCtx: AuditContext
+    auditCtx: AuditContext,
   ): Promise<RoleDto> {
     const name = input.name.trim();
-    if (!name) throw new ValidationError('Role name is required');
+    if (!name) throw new ValidationError("Role name is required");
 
     // System role names are reserved.
     if ((Object.values(SystemRoles) as string[]).includes(name)) {
-      throw new ConflictError('That role name is reserved for a system role');
+      throw new ConflictError("That role name is reserved for a system role");
     }
 
     const existing = await this.prisma.role.findUnique({ where: { name } });
-    if (existing) throw new ConflictError('A role with that name already exists');
+    if (existing)
+      throw new ConflictError("A role with that name already exists");
 
     const permKeys = this.validatePermissionKeys(input.permissions ?? []);
     this.assertCanDelegatePermissions(permKeys, actor.isSuperAdmin);
@@ -99,11 +107,11 @@ export class RolesService {
         {
           ...auditCtx,
           action: AuditActions.RoleCreated,
-          targetType: 'ROLE',
+          targetType: "ROLE",
           targetId: role.id,
           metadata: { name, permissions: permKeys },
         },
-        tx
+        tx,
       );
       return role.id;
     });
@@ -120,24 +128,29 @@ export class RolesService {
     id: string,
     input: { description?: string; permissions?: string[] },
     actor: { userId: string; isSuperAdmin: boolean },
-    auditCtx: AuditContext
+    auditCtx: AuditContext,
   ): Promise<RoleDto> {
     const role = await this.prisma.role.findUnique({ where: { id } });
-    if (!role) throw new NotFoundError('Role not found');
+    if (!role) throw new NotFoundError("Role not found");
 
     if (role.isSystem && !actor.isSuperAdmin) {
-      throw new ForbiddenError('System roles can only be modified by a super administrator');
+      throw new ForbiddenError(
+        "System roles can only be modified by a super administrator",
+      );
     }
     // Protect the SUPER_ADMIN role specifically.
     if (role.name === SystemRoles.SuperAdmin && !actor.isSuperAdmin) {
-      throw new ForbiddenError('You cannot modify the super administrator role');
+      throw new ForbiddenError(
+        "You cannot modify the super administrator role",
+      );
     }
 
     const permKeys =
       input.permissions !== undefined
         ? this.validatePermissionKeys(input.permissions)
         : undefined;
-    if (permKeys) this.assertCanDelegatePermissions(permKeys, actor.isSuperAdmin);
+    if (permKeys)
+      this.assertCanDelegatePermissions(permKeys, actor.isSuperAdmin);
 
     await this.prisma.$transaction(async (tx) => {
       await tx.role.update({
@@ -153,11 +166,11 @@ export class RolesService {
           {
             ...auditCtx,
             action: AuditActions.RolePermissionsUpdated,
-            targetType: 'ROLE',
+            targetType: "ROLE",
             targetId: id,
             metadata: { permissions: permKeys },
           },
-          tx
+          tx,
         );
       }
 
@@ -165,11 +178,11 @@ export class RolesService {
         {
           ...auditCtx,
           action: AuditActions.RoleUpdated,
-          targetType: 'ROLE',
+          targetType: "ROLE",
           targetId: id,
           metadata: { description: input.description },
         },
-        tx
+        tx,
       );
     });
 
@@ -181,15 +194,19 @@ export class RolesService {
     id: string,
     permissions: string[],
     actor: { userId: string; isSuperAdmin: boolean },
-    auditCtx: AuditContext
+    auditCtx: AuditContext,
   ): Promise<RoleDto> {
     const role = await this.prisma.role.findUnique({ where: { id } });
-    if (!role) throw new NotFoundError('Role not found');
+    if (!role) throw new NotFoundError("Role not found");
     if (role.name === SystemRoles.SuperAdmin && !actor.isSuperAdmin) {
-      throw new ForbiddenError('You cannot modify the super administrator role');
+      throw new ForbiddenError(
+        "You cannot modify the super administrator role",
+      );
     }
     if (role.isSystem && !actor.isSuperAdmin) {
-      throw new ForbiddenError('System roles can only be modified by a super administrator');
+      throw new ForbiddenError(
+        "System roles can only be modified by a super administrator",
+      );
     }
 
     const permKeys = this.validatePermissionKeys(permissions);
@@ -203,11 +220,11 @@ export class RolesService {
         {
           ...auditCtx,
           action: AuditActions.RolePermissionsUpdated,
-          targetType: 'ROLE',
+          targetType: "ROLE",
           targetId: id,
           metadata: { permissions: permKeys },
         },
-        tx
+        tx,
       );
     });
 
@@ -215,14 +232,11 @@ export class RolesService {
   }
 
   /** Delete a custom role. System roles cannot be deleted. */
-  async deleteRole(
-    id: string,
-    auditCtx: AuditContext
-  ): Promise<void> {
+  async deleteRole(id: string, auditCtx: AuditContext): Promise<void> {
     const role = await this.prisma.role.findUnique({ where: { id } });
-    if (!role) throw new NotFoundError('Role not found');
+    if (!role) throw new NotFoundError("Role not found");
     if (role.isSystem) {
-      throw new ForbiddenError('System roles cannot be deleted');
+      throw new ForbiddenError("System roles cannot be deleted");
     }
 
     await this.prisma.$transaction(async (tx) => {
@@ -234,11 +248,11 @@ export class RolesService {
         {
           ...auditCtx,
           action: AuditActions.RoleDeleted,
-          targetType: 'ROLE',
+          targetType: "ROLE",
           targetId: id,
           metadata: { name: role.name },
         },
-        tx
+        tx,
       );
     });
   }
@@ -251,18 +265,24 @@ export class RolesService {
     targetUserId: string,
     roleNames: string[],
     actor: { userId: string; isSuperAdmin: boolean },
-    auditCtx: AuditContext
+    auditCtx: AuditContext,
   ): Promise<string[]> {
-    const targetUser = await this.prisma.user.findUnique({ where: { id: targetUserId } });
-    if (!targetUser) throw new NotFoundError('User not found');
+    const targetUser = await this.prisma.user.findUnique({
+      where: { id: targetUserId },
+    });
+    if (!targetUser) throw new NotFoundError("User not found");
 
     // Resolve the requested role names to role rows.
-    const uniqueNames = [...new Set(roleNames.map((n) => n.trim()).filter(Boolean))];
-    const roles = await this.prisma.role.findMany({ where: { name: { in: uniqueNames } } });
+    const uniqueNames = [
+      ...new Set(roleNames.map((n) => n.trim()).filter(Boolean)),
+    ];
+    const roles = await this.prisma.role.findMany({
+      where: { name: { in: uniqueNames } },
+    });
     if (roles.length !== uniqueNames.length) {
       const found = new Set(roles.map((r) => r.name));
       const missing = uniqueNames.filter((n) => !found.has(n));
-      throw new ValidationError(`Unknown role(s): ${missing.join(', ')}`);
+      throw new ValidationError(`Unknown role(s): ${missing.join(", ")}`);
     }
 
     const currentNames = await this.getUserRoles(targetUserId);
@@ -271,19 +291,26 @@ export class RolesService {
     // ── Privilege-escalation protection ──────────────────────────────────────
     // Only a SUPER_ADMIN may grant or remove the SUPER_ADMIN role.
     const grantsSuperAdmin =
-      nextNames.includes(SystemRoles.SuperAdmin) && !currentNames.includes(SystemRoles.SuperAdmin);
+      nextNames.includes(SystemRoles.SuperAdmin) &&
+      !currentNames.includes(SystemRoles.SuperAdmin);
     const removesSuperAdmin =
-      currentNames.includes(SystemRoles.SuperAdmin) && !nextNames.includes(SystemRoles.SuperAdmin);
+      currentNames.includes(SystemRoles.SuperAdmin) &&
+      !nextNames.includes(SystemRoles.SuperAdmin);
     if ((grantsSuperAdmin || removesSuperAdmin) && !actor.isSuperAdmin) {
-      throw new ForbiddenError('Only a super administrator can grant or remove that role');
+      throw new ForbiddenError(
+        "Only a super administrator can grant or remove that role",
+      );
     }
 
     // ── Last-administrator protection ─────────────────────────────────────────
     // Don't allow removing the final SUPER_ADMIN in the system.
     if (removesSuperAdmin) {
-      const remaining = await this.countUsersWithRole(SystemRoles.SuperAdmin, targetUserId);
+      const remaining = await this.countUsersWithRole(
+        SystemRoles.SuperAdmin,
+        targetUserId,
+      );
       if (remaining === 0) {
-        throw new ForbiddenError('Cannot remove the last super administrator');
+        throw new ForbiddenError("Cannot remove the last super administrator");
       }
     }
 
@@ -311,11 +338,11 @@ export class RolesService {
           {
             ...auditCtx,
             action: AuditActions.RoleAssigned,
-            targetType: 'USER',
+            targetType: "USER",
             targetId: targetUserId,
             metadata: { role: roleName },
           },
-          tx
+          tx,
         );
       }
       for (const roleName of removed) {
@@ -323,11 +350,11 @@ export class RolesService {
           {
             ...auditCtx,
             action: AuditActions.RoleRemoved,
-            targetType: 'USER',
+            targetType: "USER",
             targetId: targetUserId,
             metadata: { role: roleName },
           },
-          tx
+          tx,
         );
       }
     });
@@ -342,7 +369,7 @@ export class RolesService {
     const unique = [...new Set(keys)];
     const invalid = unique.filter((k) => !isPermissionKey(k));
     if (invalid.length > 0) {
-      throw new ValidationError(`Unknown permission(s): ${invalid.join(', ')}`);
+      throw new ValidationError(`Unknown permission(s): ${invalid.join(", ")}`);
     }
     return unique as PermissionKey[];
   }
@@ -352,18 +379,21 @@ export class RolesService {
    * SUPER_ADMIN-only capabilities (role/permission administration). This
    * prevents an ordinary admin from crafting a role that escalates privilege.
    */
-  private assertCanDelegatePermissions(keys: PermissionKey[], isSuperAdmin: boolean): void {
+  private assertCanDelegatePermissions(
+    keys: PermissionKey[],
+    isSuperAdmin: boolean,
+  ): void {
     if (isSuperAdmin) return;
     const restricted: PermissionKey[] = [
-      'roles.create',
-      'roles.update',
-      'roles.delete',
-      'users.roles.update',
+      "roles.create",
+      "roles.update",
+      "roles.delete",
+      "users.roles.update",
     ];
     const escalating = keys.filter((k) => restricted.includes(k));
     if (escalating.length > 0) {
       throw new ForbiddenError(
-        'You cannot delegate role-management permissions you do not administer'
+        "You cannot delegate role-management permissions you do not administer",
       );
     }
   }
@@ -371,16 +401,18 @@ export class RolesService {
   private async attachPermissions(
     tx: Prisma.TransactionClient,
     roleId: string,
-    keys: PermissionKey[]
+    keys: PermissionKey[],
   ): Promise<void> {
     if (keys.length === 0) return;
-    const perms = await tx.permission.findMany({ where: { key: { in: keys } } });
+    const perms = await tx.permission.findMany({
+      where: { key: { in: keys } },
+    });
     const foundKeys = new Set(perms.map((p) => p.key));
     const missing = keys.filter((k) => !foundKeys.has(k));
     if (missing.length > 0) {
       // The registry is valid but the permission rows haven't been seeded.
       throw new ValidationError(
-        `Permission(s) not provisioned in the database: ${missing.join(', ')}. Run the seed.`
+        `Permission(s) not provisioned in the database: ${missing.join(", ")}. Run the seed.`,
       );
     }
     await tx.rolePermission.createMany({
@@ -391,7 +423,7 @@ export class RolesService {
   /** Bump permissionVersion for every user assigned the given role. */
   private async bumpPermissionVersionForRole(
     tx: Prisma.TransactionClient,
-    roleId: string
+    roleId: string,
   ): Promise<void> {
     const assignments = await tx.userRole.findMany({
       where: { roleId },
@@ -405,7 +437,10 @@ export class RolesService {
   }
 
   /** Count users holding a role, excluding one user id. */
-  private async countUsersWithRole(roleName: string, excludeUserId: string): Promise<number> {
+  private async countUsersWithRole(
+    roleName: string,
+    excludeUserId: string,
+  ): Promise<number> {
     return this.prisma.userRole.count({
       where: {
         role: { name: roleName },

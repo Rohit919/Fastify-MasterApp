@@ -1,25 +1,10 @@
-import CircuitBreaker from 'opossum';
-import { Gauge, register } from 'prom-client';
-import { CircuitOpenError } from './errors/index.js';
-
-/**
- * Circuit breaker utility for outbound calls (HTTP/RPC to third parties).
- *
- * Wrap any async function that talks to an external service. When failures
- * exceed the threshold the circuit OPENs and calls fail fast with
- * CircuitOpenError (no network attempt) until the reset timeout elapses.
- *
- * Usage:
- *   const result = await withCircuitBreaker('sendgrid', (signal) =>
- *     fetch(url, { signal }), { timeout: 3000 });
- */
+import CircuitBreaker from "opossum";
+import { Gauge, register } from "prom-client";
+import { CircuitOpenError } from "./errors/index.js";
 
 export interface CircuitBreakerOptions {
-  /** ms before the call is aborted via AbortController and counted as a failure. */
   timeout?: number;
-  /** % of failures within the rolling window that trips the circuit. */
   errorThresholdPercentage?: number;
-  /** ms the circuit stays OPEN before moving to HALF-OPEN to probe. */
   resetTimeout?: number;
 }
 
@@ -29,74 +14,89 @@ const DEFAULTS: Required<CircuitBreakerOptions> = {
   resetTimeout: 30_000,
 };
 
-// One gauge for all breakers: 1 = current state, labelled by service + state.
 const circuitState = new Gauge({
-  name: 'circuit_breaker_state',
-  help: 'Circuit breaker state (1 = current). Labels: service, state.',
-  labelNames: ['service', 'state'],
+  name: "circuit_breaker_state",
+  help: "Circuit breaker state (1 = current). Labels: service, state.",
+  labelNames: ["service", "state"],
   registers: [register],
 });
 
-function setState(service: string, state: 'closed' | 'open' | 'half_open'): void {
-  for (const s of ['closed', 'open', 'half_open'] as const) {
-    circuitState.labels({ service, state: s }).set(s === state ? 1 : 0);
+function setState(
+  service: string,
+  state: "closed" | "open" | "half_open",
+): void {
+  for (const candidate of ["closed", "open", "half_open"] as const) {
+    circuitState
+      .labels({ service, state: candidate })
+      .set(candidate === state ? 1 : 0);
   }
 }
 
-// Cache one breaker per service name so state persists across calls.
+// The breaker action accepts the current invocation as an argument. This avoids
+// accidentally retaining and replaying the first closure registered for a service.
 const breakers = new Map<string, CircuitBreaker>();
+const breakerTimeouts = new Map<string, number>();
 
-function getBreaker<TArgs extends unknown[], TResult>(
+function getOrCreateBreaker(
   service: string,
-  action: (...args: TArgs) => Promise<TResult>,
-  options: CircuitBreakerOptions
+  options: CircuitBreakerOptions,
 ): CircuitBreaker {
   const existing = breakers.get(service);
   if (existing) return existing;
 
-  const opts = { ...DEFAULTS, ...options };
-  const breaker = new CircuitBreaker(action as (...args: unknown[]) => Promise<unknown>, {
-    timeout: opts.timeout,
-    errorThresholdPercentage: opts.errorThresholdPercentage,
-    resetTimeout: opts.resetTimeout,
-    name: service,
-  });
-
-  breaker.on('open', () => setState(service, 'open'));
-  breaker.on('halfOpen', () => setState(service, 'half_open'));
-  breaker.on('close', () => setState(service, 'closed'));
-  setState(service, 'closed');
-
+  const resolved = { ...DEFAULTS, ...options };
+  const breaker = new CircuitBreaker(
+    (action: (signal: AbortSignal) => Promise<unknown>, signal: AbortSignal) =>
+      action(signal),
+    {
+      timeout: resolved.timeout,
+      errorThresholdPercentage: resolved.errorThresholdPercentage,
+      resetTimeout: resolved.resetTimeout,
+      name: service,
+    },
+  );
+  breaker.on("open", () => setState(service, "open"));
+  breaker.on("halfOpen", () => setState(service, "half_open"));
+  breaker.on("close", () => setState(service, "closed"));
+  setState(service, "closed");
   breakers.set(service, breaker);
+  breakerTimeouts.set(service, resolved.timeout);
   return breaker;
 }
 
-/**
- * Run `fn` through the named circuit breaker. `fn` receives an AbortSignal that
- * fires when the breaker's timeout elapses — pass it to fetch/axios so the
- * underlying request is actually cancelled.
- */
 export async function withCircuitBreaker<TResult>(
   service: string,
-  fn: (signal: AbortSignal) => Promise<TResult>,
-  options: CircuitBreakerOptions = {}
+  action: (signal: AbortSignal) => Promise<TResult>,
+  options: CircuitBreakerOptions = {},
 ): Promise<TResult> {
+  const breaker = getOrCreateBreaker(service, options);
   const controller = new AbortController();
-  const breaker = getBreaker(service, () => fn(controller.signal), options);
+  const timeout = breakerTimeouts.get(service) ?? DEFAULTS.timeout;
+  const abortTimer = setTimeout(() => controller.abort(), timeout);
+  abortTimer.unref();
 
   try {
-    return (await breaker.fire()) as TResult;
-  } catch (err) {
-    // opossum throws an error with code 'EOPENBREAKER' when the circuit is open.
-    if ((err as { code?: string })?.code === 'EOPENBREAKER') {
-      controller.abort();
+    return (await breaker.fire(action, controller.signal)) as TResult;
+  } catch (error) {
+    if ((error as { code?: string })?.code === "EOPENBREAKER") {
       throw new CircuitOpenError(service);
     }
-    throw err;
+    throw error;
+  } finally {
+    clearTimeout(abortTimer);
   }
 }
 
-/** Test/introspection helper. */
 export function getCircuitBreaker(service: string): CircuitBreaker | undefined {
   return breakers.get(service);
+}
+
+export function listCircuitBreakers(): Array<{
+  name: string;
+  opened: boolean;
+}> {
+  return [...breakers.entries()].map(([name, breaker]) => ({
+    name,
+    opened: breaker.opened,
+  }));
 }

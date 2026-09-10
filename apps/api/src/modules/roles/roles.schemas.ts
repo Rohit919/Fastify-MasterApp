@@ -13,4 +13,4 @@ export {
   UpdateRolePermissionsBody,
   SetUserRolesBody,
   UserRolesResponse,
-} from '@app/api-contracts';
+} from "@app/api-contracts";

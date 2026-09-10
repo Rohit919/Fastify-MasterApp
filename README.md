@@ -2,7 +2,7 @@
 
 Production-ready TypeScript monorepo: a **Fastify API** and a **React admin frontend**, sharing type-safe **TypeBox API contracts**, built on Prisma, Docker, Prometheus, and the Golden Orchestrator pattern.
 
-[![Node.js Version](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen?logo=node.js)](https://nodejs.org/)
+[![Node.js Version](https://img.shields.io/badge/node-%3E%3D22.0.0-brightgreen?logo=node.js)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?logo=typescript)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -64,7 +64,7 @@ apps/api/src/modules/
 │   └── __tests__/
 ├── users/        # profile
 ├── todos/        # reference Golden Orchestrator implementation
-├── orders/       # scaffolded skeleton (no model yet)
+├── orders/       # orchestrated orders with server-priced products
 └── example/      # direct-Prisma CRUD (contrast to orchestrator)
 ```
 
@@ -73,6 +73,7 @@ apps/api/src/modules/
 ## ✨ Features
 
 ### API (`apps/api`)
+
 - **Fastify + TypeScript** — strict mode, native performance
 - **Prisma + PostgreSQL** — type-safe ORM with migrations
 - **Golden Orchestrator pattern** — pipeline-based business logic with per-stage metrics
@@ -80,9 +81,10 @@ apps/api/src/modules/
 - **TypeBox validation** — request/response schemas shared with the frontend
 - **Prometheus metrics** at `/metrics`, **Swagger** at `/documentation`
 - **Health/readiness probes**, graceful shutdown, structured Pino logging
-- **41 integration tests** with a mock-based test harness (no DB needed)
+- **174 backend tests plus admin unit and Playwright smoke tests** with a mock-based test harness (no DB needed)
 
 ### Admin (`apps/admin`)
+
 - **React + Vite + TypeScript** — fast SPA, no SSR overhead
 - **TanStack Query** for server state, **Zustand** for client/UI state
 - **React Router** with a protected-route guard
@@ -90,6 +92,7 @@ apps/api/src/modules/
 - Consumes the **same TypeBox contracts** the API validates against
 
 ### Shared (`packages/api-contracts`)
+
 - Single source of truth for request/response shapes
 - Both apps import the exact same schemas — **contract drift is impossible**
 
@@ -98,15 +101,18 @@ apps/api/src/modules/
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Node.js 20+ LTS
+
+- Node.js 22.12+ LTS
 - Docker & Docker Compose
 
 ### 1. Install (all workspaces)
+
 ```bash
 npm install
 ```
 
 ### 2. Start the database & run migrations
+
 ```bash
 npm run docker:up          # starts postgres (+ prometheus, grafana)
 npm run db:migrate         # applies Prisma migrations
@@ -115,6 +121,7 @@ npm run db:migrate         # applies Prisma migrations
 Ensure a `.env` exists at the repo root (see [Environment](#-environment)).
 
 ### 3. Run the apps
+
 ```bash
 # terminal 1 — API on :3000
 npm run dev:api
@@ -124,8 +131,9 @@ npm run dev:admin
 ```
 
 Then open:
-- **Admin UI**: http://localhost:5173  (login: `demo@example.com` / `password123` if seeded)
-- **API index**: http://localhost:3000/api/v1  (version + endpoint catalog)
+
+- **Admin UI**: http://localhost:5173 (login: `demo@example.com` / `password123` if seeded)
+- **API index**: http://localhost:3000/api/v1 (version + endpoint catalog)
 - **Swagger**: http://localhost:3000/documentation
 - **Prometheus**: http://localhost:9090
 - **Grafana**: http://localhost:3001
@@ -134,19 +142,19 @@ Then open:
 
 ## 🛠️ Scripts (run from repo root)
 
-| Script | What it does |
-|---|---|
-| `npm run dev:api` | Start the Fastify API (tsx watch) |
-| `npm run dev:admin` | Start the React admin (Vite) |
-| `npm run build` | Build contracts → api → admin, in order |
-| `npm run build:contracts` | Build the shared contracts package |
-| `npm run build:api` | Build the API only |
-| `npm run build:admin` | Build the admin only |
-| `npm run test` | Run the API test suite |
-| `npm run typecheck` | Typecheck every workspace |
-| `npm run db:migrate` | Prisma migrate (dev) |
-| `npm run db:studio` | Open Prisma Studio |
-| `npm run docker:up` / `docker:down` | Start / stop infra containers |
+| Script                              | What it does                            |
+| ----------------------------------- | --------------------------------------- |
+| `npm run dev:api`                   | Start the Fastify API (tsx watch)       |
+| `npm run dev:admin`                 | Start the React admin (Vite)            |
+| `npm run build`                     | Build contracts → api → admin, in order |
+| `npm run build:contracts`           | Build the shared contracts package      |
+| `npm run build:api`                 | Build the API only                      |
+| `npm run build:admin`               | Build the admin only                    |
+| `npm run test`                      | Run the API test suite                  |
+| `npm run typecheck`                 | Typecheck every workspace               |
+| `npm run db:migrate`                | Prisma migrate (dev)                    |
+| `npm run db:studio`                 | Open Prisma Studio                      |
+| `npm run docker:up` / `docker:down` | Start / stop infra containers           |
 
 Per-workspace scripts run with `npm run <script> --workspace @app/<name>`.
 
@@ -157,6 +165,7 @@ Per-workspace scripts run with `npm run <script> --workspace @app/<name>`.
 `GET /api/v1` returns a live catalog. Current surface:
 
 **Public**
+
 - `GET /api/v1` — API index (version + endpoints)
 - `GET /api/v1/health` — liveness
 - `GET /api/v1/ready` — readiness (DB check)
@@ -166,10 +175,15 @@ Per-workspace scripts run with `npm run <script> --workspace @app/<name>`.
 - `POST /api/v1/auth/logout` — revoke refresh token
 
 **Protected (Bearer token)**
+
 - `GET /api/v1/auth/verify` — verify access token
 - `GET /api/v1/users/me` — current user profile
 - `GET /api/v1/todos` — list todos
 - `POST /api/v1/todos` — **create todo (Golden Orchestrator) ⭐**
+- `GET /api/v1/orders` — list visible orders
+- `POST /api/v1/orders` — idempotent, orchestrated order creation
+- `POST /api/v1/orders/:id/cancel` — cancel a pending order
+- `GET /api/v1/admin/audit-logs` — paginated audit trail
 - `GET /api/v1/examples` — list examples (direct Prisma)
 - `POST /api/v1/examples` — create example (direct Prisma)
 
@@ -181,13 +195,15 @@ Structured, observable business logic through pipelines. See **[docs/ARCHITECTUR
 
 ```typescript
 class CreateTodoOrchestrator extends BaseOrchestrator<
-  TodoPipelineContext, Todo, CreateTodoInput
+  TodoPipelineContext,
+  Todo,
+  CreateTodoInput
 > {
   protected getPipeline(): PipelineStage<TodoPipelineContext>[] {
     return [
-      { name: 'validate-input', operation: validateInput, critical: true },
-      { name: 'create-todo',    operation: createTodo,    critical: true },
-      { name: 'notify-creation',operation: notifyCreation,critical: false },
+      { name: "validate-input", operation: validateInput, critical: true },
+      { name: "create-todo", operation: createTodo, critical: true },
+      { name: "notify-creation", operation: notifyCreation, critical: false },
     ];
   }
 }
@@ -223,9 +239,11 @@ the inner loop.
 ## 🧪 Testing
 
 ```bash
-npm run test                         # API suite (41 tests)
+npm run test                         # API suite (174 tests)
 npm run test:coverage --workspace @app/api
 ```
+
+The API suite contains 174 tests. Admin session behavior is covered with Vitest, and Playwright provides browser smoke coverage.
 
 Tests use `apps/api/src/core/testing/test-app.ts` — a `buildTestApp()` factory that
 injects mock Prisma and env, so tests need **no database and no `.env`**. Tests are
@@ -241,6 +259,7 @@ co-located inside each module's `__tests__/`.
 - **Structured logging** — Pino, with request IDs and authenticated-user context
 
 Generate dashboards from orchestrator code:
+
 ```bash
 npm run generate:dashboards   # (run within apps/api if wired there)
 ```
@@ -268,7 +287,7 @@ METRICS_ENABLED=true
 SWAGGER_ENABLED=true
 ```
 
-The admin reads `VITE_API_BASE_URL` (defaults to `/api/v1`, proxied to the API in dev).
+The admin reads `VITE_API_BASE_URL` (defaults to same-origin; contract paths include `/api/v1`).
 
 ---
 
@@ -309,12 +328,12 @@ gracefully instead of cascading. When failures exceed the threshold the circuit
 opens and calls fail fast with `CircuitOpenError` (HTTP 503) until it recovers.
 
 ```ts
-import { withCircuitBreaker } from '@core/circuit-breaker.js';
+import { withCircuitBreaker } from "@core/circuit-breaker.js";
 
 const data = await withCircuitBreaker(
-  'sendgrid',                        // service name (also the metric label)
+  "sendgrid", // service name (also the metric label)
   (signal) => fetch(url, { signal }), // signal fires on timeout — pass it through
-  { timeout: 3000, errorThresholdPercentage: 50, resetTimeout: 30000 }
+  { timeout: 3000, errorThresholdPercentage: 50, resetTimeout: 30000 },
 );
 ```
 

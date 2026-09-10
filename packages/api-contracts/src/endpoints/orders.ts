@@ -1,4 +1,4 @@
-import { API_VERSION, encodeId } from './common.js';
+import { API_VERSION, encodeId } from "./common.js";
 
 /**
  * Order endpoint paths (planned).

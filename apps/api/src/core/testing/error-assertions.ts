@@ -1,4 +1,4 @@
-import { expect } from 'vitest';
+import { expect } from "vitest";
 
 /**
  * Shared error-response assertions (ERROR_HANDLING §93, §94).
@@ -26,7 +26,10 @@ interface ErrorBody {
  *
  * Pass `expectedCode` to also assert the stable machine-readable code.
  */
-export function expectErrorEnvelope(body: ErrorBody, expectedCode?: string): void {
+export function expectErrorEnvelope(
+  body: ErrorBody,
+  expectedCode?: string,
+): void {
   expect(body).toMatchObject({
     error: {
       code: expect.any(String),
@@ -44,17 +47,20 @@ export function expectErrorEnvelope(body: ErrorBody, expectedCode?: string): voi
  * secret material, auth headers, and absolute filesystem paths.
  */
 const FORBIDDEN_LEAK_PATTERNS: Array<{ label: string; pattern: RegExp }> = [
-  { label: 'stack trace', pattern: /\bat\s+[\w.<>]+\s+\(/ },
-  { label: 'postgres connection string', pattern: /postgres(?:ql)?:\/\//i },
-  { label: 'redis connection string', pattern: /redis:\/\//i },
-  { label: 'DATABASE_URL', pattern: /DATABASE_URL/ },
-  { label: 'JWT secret var', pattern: /JWT_SECRET/ },
-  { label: 'password hash field', pattern: /passwordHash|password_hash/i },
-  { label: 'bearer token', pattern: /Bearer\s+[A-Za-z0-9._-]+/ },
-  { label: 'private key', pattern: /BEGIN (?:RSA )?PRIVATE KEY/ },
-  { label: 'SQL statement', pattern: /\b(?:SELECT|INSERT INTO|UPDATE|DELETE FROM)\b/ },
-  { label: 'prisma internals', pattern: /PrismaClient\w*Error|prisma\.\w+\./ },
-  { label: 'absolute unix path', pattern: /\/(?:Users|home|var|etc|root)\// },
+  { label: "stack trace", pattern: /\bat\s+[\w.<>]+\s+\(/ },
+  { label: "postgres connection string", pattern: /postgres(?:ql)?:\/\//i },
+  { label: "redis connection string", pattern: /redis:\/\//i },
+  { label: "DATABASE_URL", pattern: /DATABASE_URL/ },
+  { label: "JWT secret var", pattern: /JWT_SECRET/ },
+  { label: "password hash field", pattern: /passwordHash|password_hash/i },
+  { label: "bearer token", pattern: /Bearer\s+[A-Za-z0-9._-]+/ },
+  { label: "private key", pattern: /BEGIN (?:RSA )?PRIVATE KEY/ },
+  {
+    label: "SQL statement",
+    pattern: /\b(?:SELECT|INSERT INTO|UPDATE|DELETE FROM)\b/,
+  },
+  { label: "prisma internals", pattern: /PrismaClient\w*Error|prisma\.\w+\./ },
+  { label: "absolute unix path", pattern: /\/(?:Users|home|var|etc|root)\// },
 ];
 
 /**

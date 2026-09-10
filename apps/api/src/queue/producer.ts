@@ -1,6 +1,6 @@
-import type { Queue } from 'bullmq';
-import { context, propagation } from '@opentelemetry/api';
-import type { NotificationJobData } from './types.js';
+import type { JobsOptions, Queue } from "bullmq";
+import { context, propagation } from "@opentelemetry/api";
+import type { NotificationJobData } from "./types.js";
 
 /**
  * Serialize the active OTel context into a carrier so the worker can continue
@@ -16,10 +16,15 @@ function injectOtelContext(): Record<string, string> {
  * Enqueue a notification job. Returns as soon as the job is written to Redis
  * (typically < 5ms) — the actual work runs in the worker process.
  */
-export async function enqueueNotification(
+export async function enqueueNotification<T extends NotificationJobData>(
   queue: Queue,
-  data: Omit<NotificationJobData, '_otel'>
+  data: Omit<T, "_otel">,
+  options: JobsOptions = {},
 ): Promise<string> {
-  const job = await queue.add('notify', { ...data, _otel: injectOtelContext() });
-  return job.id ?? '';
+  const job = await queue.add(
+    "notify",
+    { ...data, _otel: injectOtelContext() },
+    options,
+  );
+  return job.id ?? "";
 }

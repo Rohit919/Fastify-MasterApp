@@ -1,1 +1,1 @@
-export type { UserProfile } from '@app/api-contracts';
+export type { UserProfile } from "@app/api-contracts";

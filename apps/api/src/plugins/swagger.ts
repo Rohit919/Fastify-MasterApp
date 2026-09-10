@@ -1,50 +1,62 @@
-import fp from 'fastify-plugin';
-import fastifySwagger from '@fastify/swagger';
-import fastifySwaggerUI from '@fastify/swagger-ui';
-import type { FastifyPluginAsync } from 'fastify';
+import fp from "fastify-plugin";
+import fastifySwagger from "@fastify/swagger";
+import fastifySwaggerUI from "@fastify/swagger-ui";
+import type { FastifyPluginAsync } from "fastify";
 
 const swaggerPlugin: FastifyPluginAsync = async (fastify) => {
-  if (fastify.config.SWAGGER_ENABLED && fastify.config.NODE_ENV === 'production') {
+  if (
+    fastify.config.SWAGGER_ENABLED &&
+    fastify.config.NODE_ENV === "production"
+  ) {
     fastify.log.warn(
-      'SWAGGER_ENABLED=true in production — this exposes your full API schema. Disable unless intentional.'
+      "SWAGGER_ENABLED=true in production — this exposes your full API schema. Disable unless intentional.",
     );
   }
 
   // Register Swagger
   await fastify.register(fastifySwagger, {
     openapi: {
-      openapi: '3.0.0',
+      openapi: "3.0.0",
       info: {
-        title: 'Fastify Gold Standard API',
-        description: 'Production-ready Fastify starter with TypeScript, Prisma, and Docker',
-        version: '1.0.0',
+        title: "Fastify Gold Standard API",
+        description:
+          "Production-ready Fastify starter with TypeScript, Prisma, and Docker",
+        version: "1.0.0",
       },
       // Don't set servers - let Swagger UI auto-detect from browser URL
       // Tags are optional - Swagger auto-discovers them from routes!
       // Define tags here only if you want to control order or add descriptions
       tags: [
-        { name: 'Meta', description: 'API index and metadata' },
-        { name: 'Health', description: 'Health check endpoints' },
-        { name: 'Authentication', description: 'Authentication & account recovery endpoints' },
-        { name: 'Users', description: 'User management endpoints' },
-        { name: 'Roles', description: 'RBAC role management (admin)' },
-        { name: 'Permissions', description: 'RBAC permission registry (admin)' },
-        { name: 'Admin', description: 'Admin-only diagnostics' },
+        { name: "Meta", description: "API index and metadata" },
+        { name: "Health", description: "Health check endpoints" },
         {
-          name: 'Todos',
-          description: 'Todo management (demonstrates Golden Orchestrator pattern)',
+          name: "Authentication",
+          description: "Authentication & account recovery endpoints",
+        },
+        { name: "Users", description: "User management endpoints" },
+        { name: "Roles", description: "RBAC role management (admin)" },
+        {
+          name: "Permissions",
+          description: "RBAC permission registry (admin)",
+        },
+        { name: "Admin", description: "Admin-only diagnostics" },
+        {
+          name: "Todos",
+          description:
+            "Todo management (demonstrates Golden Orchestrator pattern)",
         },
         {
-          name: 'Example',
-          description: 'Example CRUD endpoints (demonstrates direct Prisma access)',
+          name: "Example",
+          description:
+            "Example CRUD endpoints (demonstrates direct Prisma access)",
         },
       ],
       components: {
         securitySchemes: {
           bearerAuth: {
-            type: 'http',
-            scheme: 'bearer',
-            bearerFormat: 'JWT',
+            type: "http",
+            scheme: "bearer",
+            bearerFormat: "JWT",
           },
         },
       },
@@ -56,7 +68,7 @@ const swaggerPlugin: FastifyPluginAsync = async (fastify) => {
     await fastify.register(fastifySwaggerUI, {
       routePrefix: fastify.config.SWAGGER_PATH,
       uiConfig: {
-        docExpansion: 'none',
+        docExpansion: "none",
         deepLinking: true,
         persistAuthorization: true,
         // Safari compatibility
@@ -67,7 +79,6 @@ const swaggerPlugin: FastifyPluginAsync = async (fastify) => {
       transformSpecification: (swaggerObject, _req, _reply) => {
         // Create a copy without host for Safari compatibility
         const spec = { ...swaggerObject };
-        // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
         delete spec.host;
         return spec;
       },
@@ -76,6 +87,6 @@ const swaggerPlugin: FastifyPluginAsync = async (fastify) => {
 };
 
 export default fp(swaggerPlugin, {
-  name: 'swagger',
-  dependencies: ['env'],
+  name: "swagger",
+  dependencies: ["env"],
 });

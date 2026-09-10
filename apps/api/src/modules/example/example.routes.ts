@@ -1,5 +1,9 @@
-import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
-import { EXAMPLE_CONTRACTS, toFastifySchema, type CreateExampleBody } from '@app/api-contracts';
+import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
+import {
+  EXAMPLE_CONTRACTS,
+  toFastifySchema,
+  type CreateExampleBody,
+} from "@app/api-contracts";
 
 /**
  * Example module — demonstrates DIRECT Prisma access for simple CRUD.
@@ -10,14 +14,14 @@ import { EXAMPLE_CONTRACTS, toFastifySchema, type CreateExampleBody } from '@app
 const exampleRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
   // ── GET / ────────────────────────────────────────────────────────────────────
   fastify.get(
-    '/',
+    "/",
     {
       preValidation: [fastify.authenticate],
       schema: toFastifySchema(EXAMPLE_CONTRACTS.LIST),
     },
     async (_request, reply) => {
       const examples = await fastify.prisma.example.findMany({
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
       });
       return reply.send({
         success: true,
@@ -27,12 +31,12 @@ const exampleRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
           updatedAt: ex.updatedAt.toISOString(),
         })),
       });
-    }
+    },
   );
 
   // ── POST / ───────────────────────────────────────────────────────────────────
   fastify.post(
-    '/',
+    "/",
     {
       preValidation: [fastify.authenticate],
       schema: toFastifySchema(EXAMPLE_CONTRACTS.CREATE),
@@ -50,7 +54,7 @@ const exampleRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
           updatedAt: example.updatedAt.toISOString(),
         },
       });
-    }
+    },
   );
 };
 

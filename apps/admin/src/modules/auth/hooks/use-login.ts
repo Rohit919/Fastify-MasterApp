@@ -1,8 +1,8 @@
-import { useMutation } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
-import { login } from '@/modules/auth/api/login';
-import { useAuthStore } from '@/stores/auth.store';
-import type { LoginBody } from '@app/api-contracts';
+import { useMutation } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
+import { login } from "@/modules/auth/api/login";
+import { useAuthStore } from "@/stores/auth.store";
+import type { LoginBody } from "@app/api-contracts";
 
 /**
  * Login mutation — on success, stores the session and navigates to /dashboard.
@@ -19,7 +19,7 @@ export function useLogin() {
         accessToken: data.accessToken,
         user: data.user,
       });
-      navigate('/dashboard', { replace: true });
+      navigate("/dashboard", { replace: true });
     },
   });
 }

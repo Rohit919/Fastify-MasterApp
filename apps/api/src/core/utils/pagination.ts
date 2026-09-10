@@ -1,4 +1,4 @@
-import { PAGINATION_DEFAULTS } from '@app/api-contracts';
+import { PAGINATION_DEFAULTS } from "@app/api-contracts";
 
 /**
  * Server-side pagination helpers (API_CONVENTIONS §12–§14).
@@ -35,7 +35,7 @@ export function normalizePagination(input?: {
   const requested = Math.trunc(input?.pageSize ?? PAGINATION_DEFAULTS.pageSize);
   const pageSize = Math.min(
     PAGINATION_DEFAULTS.maxPageSize,
-    Math.max(PAGINATION_DEFAULTS.minPageSize, requested)
+    Math.max(PAGINATION_DEFAULTS.minPageSize, requested),
   );
 
   return { page, pageSize, skip: (page - 1) * pageSize, take: pageSize };
@@ -45,7 +45,7 @@ export function normalizePagination(input?: {
 export function buildPageMeta(
   page: number,
   pageSize: number,
-  total: number
+  total: number,
 ): OffsetPageMeta {
   return {
     page,
@@ -68,23 +68,28 @@ export interface NormalizedCursor<C = string> {
  * of the API contract once emitted.
  */
 export function encodeCursor(payload: unknown): string {
-  return Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
+  return Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
 }
 
-export function decodeCursor<T = Record<string, unknown>>(cursor?: string): T | undefined {
+export function decodeCursor<T = Record<string, unknown>>(
+  cursor?: string,
+): T | undefined {
   if (!cursor) return undefined;
   try {
-    return JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8')) as T;
+    return JSON.parse(Buffer.from(cursor, "base64url").toString("utf8")) as T;
   } catch {
     return undefined;
   }
 }
 
-export function normalizeCursor(input?: { limit?: number; cursor?: string }): NormalizedCursor {
+export function normalizeCursor(input?: {
+  limit?: number;
+  cursor?: string;
+}): NormalizedCursor {
   const requested = Math.trunc(input?.limit ?? PAGINATION_DEFAULTS.pageSize);
   const limit = Math.min(
     PAGINATION_DEFAULTS.maxPageSize,
-    Math.max(PAGINATION_DEFAULTS.minPageSize, requested)
+    Math.max(PAGINATION_DEFAULTS.minPageSize, requested),
   );
   return { limit, cursor: input?.cursor };
 }

@@ -9,43 +9,46 @@
  * Reads directly from process.env (not fastify.config) because it runs before
  * the Fastify app — and therefore before @fastify/env — is built.
  */
-import { NodeSDK } from '@opentelemetry/sdk-node';
-import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
-import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
-import { FastifyInstrumentation } from '@opentelemetry/instrumentation-fastify';
-import prismaInstrumentation from '@prisma/instrumentation';
+import { NodeSDK } from "@opentelemetry/sdk-node";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+import { HttpInstrumentation } from "@opentelemetry/instrumentation-http";
+import FastifyOtelInstrumentation from "@fastify/otel";
+import prismaInstrumentation from "@prisma/instrumentation";
 
 const { PrismaInstrumentation } = prismaInstrumentation;
-import { Resource } from '@opentelemetry/resources';
+import { resourceFromAttributes } from "@opentelemetry/resources";
 import {
   ATTR_SERVICE_NAME,
   ATTR_SERVICE_VERSION,
-} from '@opentelemetry/semantic-conventions';
+} from "@opentelemetry/semantic-conventions";
 
 let sdk: NodeSDK | undefined;
 
 function startTelemetry(): void {
-  if (process.env.OTEL_ENABLED !== 'true') return;
+  if (process.env.OTEL_ENABLED !== "true") return;
 
   const endpoint =
-    process.env.OTEL_EXPORTER_OTLP_ENDPOINT ?? 'http://localhost:4318/v1/traces';
+    process.env.OTEL_EXPORTER_OTLP_ENDPOINT ??
+    "http://localhost:4318/v1/traces";
 
   sdk = new NodeSDK({
-    resource: new Resource({
-      [ATTR_SERVICE_NAME]: process.env.OTEL_SERVICE_NAME ?? 'fastify-api',
-      [ATTR_SERVICE_VERSION]: process.env.COMMIT_SHA ?? 'unknown',
+    resource: resourceFromAttributes({
+      [ATTR_SERVICE_NAME]: process.env.OTEL_SERVICE_NAME ?? "fastify-api",
+      [ATTR_SERVICE_VERSION]: process.env.COMMIT_SHA ?? "unknown",
     }),
     traceExporter: new OTLPTraceExporter({ url: endpoint }),
     instrumentations: [
       new HttpInstrumentation(),
-      new FastifyInstrumentation(),
+      new FastifyOtelInstrumentation({ registerOnInitialization: true }),
       new PrismaInstrumentation(),
     ],
   });
 
   sdk.start();
   // eslint-disable-next-line no-console
-  console.log(`[telemetry] OpenTelemetry started — exporting traces to ${endpoint}`);
+  console.log(
+    `[telemetry] OpenTelemetry started — exporting traces to ${endpoint}`,
+  );
 }
 
 export async function stopTelemetry(): Promise<void> {

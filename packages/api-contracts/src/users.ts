@@ -1,10 +1,10 @@
-import { Type, type Static } from '@sinclair/typebox';
+import { Type, type Static } from "@sinclair/typebox";
 import {
   DataEnvelope,
   PaginatedEnvelope,
   PaginationQuery,
   UserRole,
-} from './common.js';
+} from "./common.js";
 
 /**
  * Users contracts — shared between the API and the admin.
@@ -61,15 +61,26 @@ export type UsersListResponse = Static<typeof UsersListResponse>;
 export const ListUsersQuery = Type.Composite([
   PaginationQuery,
   Type.Object({
-    search: Type.Optional(Type.String({ maxLength: 200, description: 'Matches name or email' })),
+    search: Type.Optional(
+      Type.String({ maxLength: 200, description: "Matches name or email" }),
+    ),
     role: Type.Optional(UserRole),
     sortBy: Type.Optional(
-      Type.Union([Type.Literal('createdAt'), Type.Literal('name'), Type.Literal('email')], {
-        default: 'createdAt',
-      })
+      Type.Union(
+        [
+          Type.Literal("createdAt"),
+          Type.Literal("name"),
+          Type.Literal("email"),
+        ],
+        {
+          default: "createdAt",
+        },
+      ),
     ),
     sortOrder: Type.Optional(
-      Type.Union([Type.Literal('asc'), Type.Literal('desc')], { default: 'desc' })
+      Type.Union([Type.Literal("asc"), Type.Literal("desc")], {
+        default: "desc",
+      }),
     ),
   }),
 ]);

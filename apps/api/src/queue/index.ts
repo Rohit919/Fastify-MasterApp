@@ -1,8 +1,8 @@
-import type { JobsOptions } from 'bullmq';
+import type { JobsOptions } from "bullmq";
 
 /** Canonical queue names — shared by producers (API) and consumers (workers). */
 export const QUEUE_NAMES = {
-  NOTIFICATIONS: 'notifications',
+  NOTIFICATIONS: "notifications",
 } as const;
 
 /**
@@ -11,7 +11,7 @@ export const QUEUE_NAMES = {
  */
 export const DEFAULT_JOB_OPTIONS: JobsOptions = {
   attempts: 3,
-  backoff: { type: 'exponential', delay: 1_000 },
+  backoff: { type: "exponential", delay: 1_000 },
   removeOnComplete: { count: 1_000 },
-  removeOnFail: false,
+  removeOnFail: { age: 30 * 24 * 60 * 60, count: 10_000 },
 };

@@ -8,4 +8,4 @@ export type {
   AuthUser,
   AuthResponse,
   TokenPairResponse,
-} from '@app/api-contracts';
+} from "@app/api-contracts";
