@@ -6,4 +6,4 @@ export {
   CreateExampleBody as CreateExampleBodySchema,
   CreateExampleResponse as CreateExampleResponseSchema,
   ListExamplesResponse as ListExamplesResponseSchema,
-} from '@app/api-contracts';
+} from "@app/api-contracts";

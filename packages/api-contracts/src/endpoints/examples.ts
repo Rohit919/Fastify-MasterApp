@@ -1,4 +1,4 @@
-import { API_VERSION } from './common.js';
+import { API_VERSION } from "./common.js";
 
 /**
  * Example module endpoint paths (registered under `/api/v1/examples`).

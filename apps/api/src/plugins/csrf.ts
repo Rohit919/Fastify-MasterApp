@@ -15,15 +15,21 @@
  * mutation is rejected with 403 before it reaches a handler. Requests with no
  * cookie (pure Bearer API calls) are exempt, matching the documented model.
  */
-import fp from 'fastify-plugin';
-import type { FastifyPluginAsync } from 'fastify';
-import { AppError, ErrorCode } from '@core/errors/index.js';
+import fp from "fastify-plugin";
+import type { FastifyPluginAsync } from "fastify";
+import { AppError, ErrorCode } from "@core/errors/index.js";
 
-const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 /** 403 with the dedicated CSRF code so clients/observability can branch on it. */
 function csrfDenied(): AppError {
-  return new AppError('Cross-site request blocked.', 403, true, undefined, ErrorCode.CSRF_FAILED);
+  return new AppError(
+    "Cross-site request blocked.",
+    403,
+    true,
+    undefined,
+    ErrorCode.CSRF_FAILED,
+  );
 }
 
 function originOf(value: string | undefined): string | null {
@@ -38,13 +44,13 @@ function originOf(value: string | undefined): string | null {
 
 const csrfPlugin: FastifyPluginAsync = async (fastify) => {
   const allowedOrigins = new Set(
-    fastify.config.CORS_ORIGIN.split(',')
+    fastify.config.CORS_ORIGIN.split(",")
       .map((o) => o.trim())
       .filter(Boolean)
-      .map((o) => originOf(o) ?? o)
+      .map((o) => originOf(o) ?? o),
   );
 
-  fastify.addHook('onRequest', async (request) => {
+  fastify.addHook("onRequest", async (request) => {
     if (SAFE_METHODS.has(request.method)) return;
 
     // Only cookie-bearing requests are subject to CSRF; Bearer-only calls are
@@ -52,7 +58,8 @@ const csrfPlugin: FastifyPluginAsync = async (fastify) => {
     const hasCookie = Boolean(request.headers.cookie);
     if (!hasCookie) return;
 
-    const origin = originOf(request.headers.origin) ?? originOf(request.headers.referer);
+    const origin =
+      originOf(request.headers.origin) ?? originOf(request.headers.referer);
 
     // No Origin/Referer header: browsers always attach one to cross-site
     // requests, so its absence indicates a non-browser client (curl, mobile,
@@ -65,8 +72,14 @@ const csrfPlugin: FastifyPluginAsync = async (fastify) => {
     // request. Reject.
     if (!allowedOrigins.has(origin)) {
       request.log.warn(
-        { event: 'csrf.denied', reason: 'origin-mismatch', origin, route: request.url, requestId: request.id },
-        'CSRF check failed: origin not allowed'
+        {
+          event: "csrf.denied",
+          reason: "origin-mismatch",
+          origin,
+          route: request.url,
+          requestId: request.id,
+        },
+        "CSRF check failed: origin not allowed",
       );
       throw csrfDenied();
     }
@@ -74,6 +87,6 @@ const csrfPlugin: FastifyPluginAsync = async (fastify) => {
 };
 
 export default fp(csrfPlugin, {
-  name: 'csrf',
-  dependencies: ['env', 'cors'],
+  name: "csrf",
+  dependencies: ["env", "cors"],
 });

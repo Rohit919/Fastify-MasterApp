@@ -1,32 +1,34 @@
-import { describe, it, expect, vi } from 'vitest';
-import bcrypt from 'bcryptjs';
-import { buildTestApp, signTestToken } from '@core/testing/test-app.js';
+import { describe, it, expect, vi } from "vitest";
+import bcrypt from "bcryptjs";
+import { buildTestApp, signTestToken } from "@core/testing/test-app.js";
 
 // ─── shared fixtures ──────────────────────────────────────────────────────────
 
-const HASHED_PASSWORD = await bcrypt.hash('password123', 10);
+const HASHED_PASSWORD = await bcrypt.hash("password123", 10);
 
 const MOCK_USER = {
-  id: 'user-test-id',
-  email: 'test@example.com',
+  id: "user-test-id",
+  email: "test@example.com",
   password: HASHED_PASSWORD,
-  name: 'Test User',
-  role: 'user',
+  name: "Test User",
+  role: "user",
   createdAt: new Date(),
   updatedAt: new Date(),
 };
 
-const BASE_URL = '/api/v1/auth';
+const BASE_URL = "/api/v1/auth";
 
 // ─── POST /login ──────────────────────────────────────────────────────────────
 
-describe('POST /api/v1/auth/login', () => {
-  it('returns 200 with accessToken and refreshToken on valid credentials', async () => {
+describe("POST /api/v1/auth/login", () => {
+  it("returns 200 with accessToken and refreshToken on valid credentials", async () => {
     const app = await buildTestApp({
       prisma: {
         user: { findUnique: vi.fn().mockResolvedValue(MOCK_USER) },
         refreshToken: {
-          create: vi.fn().mockResolvedValue({ id: 'rt-1', token: 'refresh-abc' }),
+          create: vi
+            .fn()
+            .mockResolvedValue({ id: "rt-1", token: "refresh-abc" }),
           findUnique: vi.fn(),
           update: vi.fn(),
           updateMany: vi.fn(),
@@ -35,28 +37,28 @@ describe('POST /api/v1/auth/login', () => {
     });
 
     const res = await app.inject({
-      method: 'POST',
+      method: "POST",
       url: `${BASE_URL}/login`,
-      payload: { email: 'test@example.com', password: 'password123' },
+      payload: { email: "test@example.com", password: "password123" },
     });
 
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(body.success).toBe(true);
-    expect(body.data.accessToken).toBeTypeOf('string');
+    expect(body.data.accessToken).toBeTypeOf("string");
     // Refresh token is delivered as an HTTP-only cookie, not in the body.
     expect(body.data.refreshToken).toBeUndefined();
-    const setCookie = res.headers['set-cookie'];
+    const setCookie = res.headers["set-cookie"];
     expect(String(setCookie)).toMatch(/refreshToken=/);
     expect(String(setCookie)).toMatch(/HttpOnly/i);
     expect(String(setCookie)).toMatch(/SameSite=Strict/i);
-    expect(body.data.user.email).toBe('test@example.com');
-    expect(body.data.user).not.toHaveProperty('password');
+    expect(body.data.user.email).toBe("test@example.com");
+    expect(body.data.user).not.toHaveProperty("password");
 
     await app.close();
   });
 
-  it('returns 401 for unknown email', async () => {
+  it("returns 401 for unknown email", async () => {
     const app = await buildTestApp({
       prisma: {
         user: { findUnique: vi.fn().mockResolvedValue(null) },
@@ -64,9 +66,9 @@ describe('POST /api/v1/auth/login', () => {
     });
 
     const res = await app.inject({
-      method: 'POST',
+      method: "POST",
       url: `${BASE_URL}/login`,
-      payload: { email: 'nobody@example.com', password: 'password123' },
+      payload: { email: "nobody@example.com", password: "password123" },
     });
 
     expect(res.statusCode).toBe(401);
@@ -74,7 +76,7 @@ describe('POST /api/v1/auth/login', () => {
     await app.close();
   });
 
-  it('returns 401 for wrong password', async () => {
+  it("returns 401 for wrong password", async () => {
     const app = await buildTestApp({
       prisma: {
         user: { findUnique: vi.fn().mockResolvedValue(MOCK_USER) },
@@ -82,9 +84,9 @@ describe('POST /api/v1/auth/login', () => {
     });
 
     const res = await app.inject({
-      method: 'POST',
+      method: "POST",
       url: `${BASE_URL}/login`,
-      payload: { email: 'test@example.com', password: 'wrongpassword' },
+      payload: { email: "test@example.com", password: "wrongpassword" },
     });
 
     expect(res.statusCode).toBe(401);
@@ -92,13 +94,13 @@ describe('POST /api/v1/auth/login', () => {
     await app.close();
   });
 
-  it('returns 400 for invalid email format', async () => {
+  it("returns 400 for invalid email format", async () => {
     const app = await buildTestApp();
 
     const res = await app.inject({
-      method: 'POST',
+      method: "POST",
       url: `${BASE_URL}/login`,
-      payload: { email: 'not-an-email', password: 'password123' },
+      payload: { email: "not-an-email", password: "password123" },
     });
 
     expect(res.statusCode).toBe(400);
@@ -106,13 +108,13 @@ describe('POST /api/v1/auth/login', () => {
     await app.close();
   });
 
-  it('returns 400 when password is too short', async () => {
+  it("returns 400 when password is too short", async () => {
     const app = await buildTestApp();
 
     const res = await app.inject({
-      method: 'POST',
+      method: "POST",
       url: `${BASE_URL}/login`,
-      payload: { email: 'test@example.com', password: '123' },
+      payload: { email: "test@example.com", password: "123" },
     });
 
     expect(res.statusCode).toBe(400);
@@ -123,8 +125,8 @@ describe('POST /api/v1/auth/login', () => {
 
 // ─── POST /register ───────────────────────────────────────────────────────────
 
-describe('POST /api/v1/auth/register', () => {
-  it('returns 201 with tokens on successful registration', async () => {
+describe("POST /api/v1/auth/register", () => {
+  it("returns 201 with tokens on successful registration", async () => {
     const app = await buildTestApp({
       prisma: {
         user: {
@@ -132,7 +134,9 @@ describe('POST /api/v1/auth/register', () => {
           create: vi.fn().mockResolvedValue(MOCK_USER),
         },
         refreshToken: {
-          create: vi.fn().mockResolvedValue({ id: 'rt-2', token: 'refresh-xyz' }),
+          create: vi
+            .fn()
+            .mockResolvedValue({ id: "rt-2", token: "refresh-xyz" }),
           findUnique: vi.fn(),
           update: vi.fn(),
           updateMany: vi.fn(),
@@ -141,23 +145,29 @@ describe('POST /api/v1/auth/register', () => {
     });
 
     const res = await app.inject({
-      method: 'POST',
+      method: "POST",
       url: `${BASE_URL}/register`,
-      payload: { email: 'new@example.com', password: 'password123', name: 'New User' },
+      payload: {
+        email: "new@example.com",
+        password: "password123",
+        name: "New User",
+      },
     });
 
     expect(res.statusCode).toBe(201);
     const body = res.json();
     expect(body.success).toBe(true);
-    expect(body.data.accessToken).toBeTypeOf('string');
+    expect(body.data.accessToken).toBeTypeOf("string");
     expect(body.data.refreshToken).toBeUndefined();
-    expect(String(res.headers['set-cookie'])).toMatch(/refreshToken=.*HttpOnly/i);
-    expect(body.data.user.name).toBe('Test User');
+    expect(String(res.headers["set-cookie"])).toMatch(
+      /refreshToken=.*HttpOnly/i,
+    );
+    expect(body.data.user.name).toBe("Test User");
 
     await app.close();
   });
 
-  it('returns 400 when email is already registered', async () => {
+  it("returns 400 when email is already registered", async () => {
     const app = await buildTestApp({
       prisma: {
         user: {
@@ -167,9 +177,13 @@ describe('POST /api/v1/auth/register', () => {
     });
 
     const res = await app.inject({
-      method: 'POST',
+      method: "POST",
       url: `${BASE_URL}/register`,
-      payload: { email: 'test@example.com', password: 'password123', name: 'Dup User' },
+      payload: {
+        email: "test@example.com",
+        password: "password123",
+        name: "Dup User",
+      },
     });
 
     expect(res.statusCode).toBe(400);
@@ -177,13 +191,13 @@ describe('POST /api/v1/auth/register', () => {
     await app.close();
   });
 
-  it('returns 400 when name is missing', async () => {
+  it("returns 400 when name is missing", async () => {
     const app = await buildTestApp();
 
     const res = await app.inject({
-      method: 'POST',
+      method: "POST",
       url: `${BASE_URL}/register`,
-      payload: { email: 'test@example.com', password: 'password123' },
+      payload: { email: "test@example.com", password: "password123" },
     });
 
     expect(res.statusCode).toBe(400);
@@ -194,10 +208,11 @@ describe('POST /api/v1/auth/register', () => {
 
 // ─── POST /refresh ────────────────────────────────────────────────────────────
 
-describe('POST /api/v1/auth/refresh', () => {
+describe("POST /api/v1/auth/refresh", () => {
   const STORED_TOKEN = {
-    id: 'rt-stored',
-    token: 'valid-refresh-token',
+    id: "rt-stored",
+    tokenHash: "hashed-valid-refresh-token",
+    family: "family-1",
     userId: MOCK_USER.id,
     expiresAt: new Date(Date.now() + 86_400_000), // 1 day from now
     revokedAt: null,
@@ -205,42 +220,45 @@ describe('POST /api/v1/auth/refresh', () => {
     user: MOCK_USER,
   };
 
-  it('returns 200 with new token pair and rotates the refresh token', async () => {
-    const updateMock = vi.fn().mockResolvedValue({ ...STORED_TOKEN, revokedAt: new Date() });
-    const createMock = vi.fn().mockResolvedValue({ id: 'rt-new', token: 'new-refresh-token' });
+  it("returns 200 with new token pair and rotates the refresh token", async () => {
+    const updateManyMock = vi.fn().mockResolvedValue({ count: 1 });
+    const createMock = vi
+      .fn()
+      .mockResolvedValue({ id: "rt-new", tokenHash: "new-token-hash" });
 
     const app = await buildTestApp({
       prisma: {
         refreshToken: {
           findUnique: vi.fn().mockResolvedValue(STORED_TOKEN),
-          update: updateMock,
           create: createMock,
-          updateMany: vi.fn(),
+          updateMany: updateManyMock,
         },
       },
     });
 
     const res = await app.inject({
-      method: 'POST',
+      method: "POST",
       url: `${BASE_URL}/refresh`,
-      headers: { cookie: 'refreshToken=valid-refresh-token' },
+      headers: { cookie: "refreshToken=valid-refresh-token" },
     });
 
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(body.success).toBe(true);
-    expect(body.data.accessToken).toBeTypeOf('string');
+    expect(body.data.accessToken).toBeTypeOf("string");
     expect(body.data.refreshToken).toBeUndefined();
 
-    // Old token must have been revoked
-    expect(updateMock).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: 'rt-stored' } })
+    // Old token must be consumed with a guarded atomic update.
+    expect(updateManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: "rt-stored", revokedAt: null }),
+      }),
     );
 
     await app.close();
   });
 
-  it('returns 401 for an unknown refresh token', async () => {
+  it("returns 401 for an unknown refresh token", async () => {
     const app = await buildTestApp({
       prisma: {
         refreshToken: {
@@ -253,9 +271,9 @@ describe('POST /api/v1/auth/refresh', () => {
     });
 
     const res = await app.inject({
-      method: 'POST',
+      method: "POST",
       url: `${BASE_URL}/refresh`,
-      headers: { cookie: 'refreshToken=does-not-exist' },
+      headers: { cookie: "refreshToken=does-not-exist" },
     });
 
     expect(res.statusCode).toBe(401);
@@ -263,11 +281,13 @@ describe('POST /api/v1/auth/refresh', () => {
     await app.close();
   });
 
-  it('returns 401 for an already-revoked refresh token', async () => {
+  it("returns 401 for an already-revoked refresh token", async () => {
     const app = await buildTestApp({
       prisma: {
         refreshToken: {
-          findUnique: vi.fn().mockResolvedValue({ ...STORED_TOKEN, revokedAt: new Date() }),
+          findUnique: vi
+            .fn()
+            .mockResolvedValue({ ...STORED_TOKEN, revokedAt: new Date() }),
           update: vi.fn(),
           create: vi.fn(),
           updateMany: vi.fn(),
@@ -276,9 +296,9 @@ describe('POST /api/v1/auth/refresh', () => {
     });
 
     const res = await app.inject({
-      method: 'POST',
+      method: "POST",
       url: `${BASE_URL}/refresh`,
-      headers: { cookie: 'refreshToken=valid-refresh-token' },
+      headers: { cookie: "refreshToken=valid-refresh-token" },
     });
 
     expect(res.statusCode).toBe(401);
@@ -286,7 +306,7 @@ describe('POST /api/v1/auth/refresh', () => {
     await app.close();
   });
 
-  it('returns 401 for an expired refresh token', async () => {
+  it("returns 401 for an expired refresh token", async () => {
     const app = await buildTestApp({
       prisma: {
         refreshToken: {
@@ -302,9 +322,9 @@ describe('POST /api/v1/auth/refresh', () => {
     });
 
     const res = await app.inject({
-      method: 'POST',
+      method: "POST",
       url: `${BASE_URL}/refresh`,
-      headers: { cookie: 'refreshToken=valid-refresh-token' },
+      headers: { cookie: "refreshToken=valid-refresh-token" },
     });
 
     expect(res.statusCode).toBe(401);
@@ -315,8 +335,8 @@ describe('POST /api/v1/auth/refresh', () => {
 
 // ─── POST /logout ─────────────────────────────────────────────────────────────
 
-describe('POST /api/v1/auth/logout', () => {
-  it('returns 200 and revokes the token', async () => {
+describe("POST /api/v1/auth/logout", () => {
+  it("returns 200 and revokes the token", async () => {
     const updateManyMock = vi.fn().mockResolvedValue({ count: 1 });
 
     const app = await buildTestApp({
@@ -331,9 +351,9 @@ describe('POST /api/v1/auth/logout', () => {
     });
 
     const res = await app.inject({
-      method: 'POST',
+      method: "POST",
       url: `${BASE_URL}/logout`,
-      headers: { cookie: 'refreshToken=any-token' },
+      headers: { cookie: "refreshToken=any-token" },
     });
 
     expect(res.statusCode).toBe(200);
@@ -343,7 +363,7 @@ describe('POST /api/v1/auth/logout', () => {
     await app.close();
   });
 
-  it('returns 200 even for an unknown token (idempotent)', async () => {
+  it("returns 200 even for an unknown token (idempotent)", async () => {
     const app = await buildTestApp({
       prisma: {
         refreshToken: {
@@ -356,9 +376,9 @@ describe('POST /api/v1/auth/logout', () => {
     });
 
     const res = await app.inject({
-      method: 'POST',
+      method: "POST",
       url: `${BASE_URL}/logout`,
-      headers: { cookie: 'refreshToken=ghost-token' },
+      headers: { cookie: "refreshToken=ghost-token" },
     });
 
     expect(res.statusCode).toBe(200);
@@ -369,13 +389,13 @@ describe('POST /api/v1/auth/logout', () => {
 
 // ─── GET /verify ──────────────────────────────────────────────────────────────
 
-describe('GET /api/v1/auth/verify', () => {
-  it('returns 200 with user payload for a valid token', async () => {
+describe("GET /api/v1/auth/verify", () => {
+  it("returns 200 with user payload for a valid token", async () => {
     const app = await buildTestApp();
     const token = signTestToken(app);
 
     const res = await app.inject({
-      method: 'GET',
+      method: "GET",
       url: `${BASE_URL}/verify`,
       headers: { authorization: `Bearer ${token}` },
     });
@@ -383,16 +403,16 @@ describe('GET /api/v1/auth/verify', () => {
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(body.success).toBe(true);
-    expect(body.data.user.email).toBe('test@example.com');
+    expect(body.data.user.email).toBe("test@example.com");
 
     await app.close();
   });
 
-  it('returns 401 when no token is provided', async () => {
+  it("returns 401 when no token is provided", async () => {
     const app = await buildTestApp();
 
     const res = await app.inject({
-      method: 'GET',
+      method: "GET",
       url: `${BASE_URL}/verify`,
     });
 
@@ -401,13 +421,13 @@ describe('GET /api/v1/auth/verify', () => {
     await app.close();
   });
 
-  it('returns 401 for a tampered token', async () => {
+  it("returns 401 for a tampered token", async () => {
     const app = await buildTestApp();
 
     const res = await app.inject({
-      method: 'GET',
+      method: "GET",
       url: `${BASE_URL}/verify`,
-      headers: { authorization: 'Bearer totally.fake.token' },
+      headers: { authorization: "Bearer totally.fake.token" },
     });
 
     expect(res.statusCode).toBe(401);
@@ -418,8 +438,8 @@ describe('GET /api/v1/auth/verify', () => {
 
 // ─── Phase 1 — Account lockout (REQ-006) ────────────────────────────────────
 
-describe('POST /api/v1/auth/login — account lockout', () => {
-  it('returns 429 when the account is already locked', async () => {
+describe("POST /api/v1/auth/login — account lockout", () => {
+  it("returns 429 when the account is already locked", async () => {
     const lockedUser = {
       ...MOCK_USER,
       failedLoginAttempts: 5,
@@ -436,9 +456,9 @@ describe('POST /api/v1/auth/login — account lockout', () => {
     });
 
     const res = await app.inject({
-      method: 'POST',
+      method: "POST",
       url: `${BASE_URL}/login`,
-      payload: { email: 'test@example.com', password: 'password123' },
+      payload: { email: "test@example.com", password: "password123" },
     });
 
     expect(res.statusCode).toBe(429);
@@ -448,8 +468,12 @@ describe('POST /api/v1/auth/login — account lockout', () => {
     await app.close();
   });
 
-  it('increments failed attempts and locks after the 5th failure', async () => {
-    const userAtFour = { ...MOCK_USER, failedLoginAttempts: 4, lockedUntil: null };
+  it("increments failed attempts and locks after the 5th failure", async () => {
+    const userAtFour = {
+      ...MOCK_USER,
+      failedLoginAttempts: 4,
+      lockedUntil: null,
+    };
     const updateMock = vi.fn().mockResolvedValue(userAtFour);
 
     const app = await buildTestApp({
@@ -462,9 +486,9 @@ describe('POST /api/v1/auth/login — account lockout', () => {
     });
 
     const res = await app.inject({
-      method: 'POST',
+      method: "POST",
       url: `${BASE_URL}/login`,
-      payload: { email: 'test@example.com', password: 'wrongpassword' },
+      payload: { email: "test@example.com", password: "wrongpassword" },
     });
 
     expect(res.statusCode).toBe(401);
@@ -476,23 +500,25 @@ describe('POST /api/v1/auth/login — account lockout', () => {
     await app.close();
   });
 
-  it('resets counters on successful login', async () => {
+  it("resets counters on successful login", async () => {
     const updateMock = vi.fn().mockResolvedValue(MOCK_USER);
 
     const app = await buildTestApp({
       prisma: {
         user: {
-          findUnique: vi.fn().mockResolvedValue({ ...MOCK_USER, failedLoginAttempts: 3 }),
+          findUnique: vi
+            .fn()
+            .mockResolvedValue({ ...MOCK_USER, failedLoginAttempts: 3 }),
           update: updateMock,
         },
-        refreshToken: { create: vi.fn().mockResolvedValue({ id: 'rt' }) },
+        refreshToken: { create: vi.fn().mockResolvedValue({ id: "rt" }) },
       },
     });
 
     const res = await app.inject({
-      method: 'POST',
+      method: "POST",
       url: `${BASE_URL}/login`,
-      payload: { email: 'test@example.com', password: 'password123' },
+      payload: { email: "test@example.com", password: "password123" },
     });
 
     expect(res.statusCode).toBe(200);
@@ -506,12 +532,12 @@ describe('POST /api/v1/auth/login — account lockout', () => {
 
 // ─── Phase 1 — Refresh token family detection (REQ-010) ─────────────────────
 
-describe('POST /api/v1/auth/refresh — family reuse detection', () => {
-  it('revokes the entire family when a revoked token is reused', async () => {
+describe("POST /api/v1/auth/refresh — family reuse detection", () => {
+  it("revokes the entire family when a revoked token is reused", async () => {
     const revokedToken = {
-      id: 'rt-old',
-      token: 'reused-token',
-      family: 'fam-123',
+      id: "rt-old",
+      token: "reused-token",
+      family: "fam-123",
       userId: MOCK_USER.id,
       expiresAt: new Date(Date.now() + 86_400_000),
       revokedAt: new Date(Date.now() - 1000), // already revoked
@@ -532,15 +558,17 @@ describe('POST /api/v1/auth/refresh — family reuse detection', () => {
     });
 
     const res = await app.inject({
-      method: 'POST',
+      method: "POST",
       url: `${BASE_URL}/refresh`,
-      headers: { cookie: 'refreshToken=reused-token' },
+      headers: { cookie: "refreshToken=reused-token" },
     });
 
     expect(res.statusCode).toBe(401);
     // The whole family must have been revoked
     expect(updateManyMock).toHaveBeenCalledWith(
-      expect.objectContaining({ where: expect.objectContaining({ family: 'fam-123' }) })
+      expect.objectContaining({
+        where: expect.objectContaining({ family: "fam-123" }),
+      }),
     );
 
     await app.close();
@@ -549,9 +577,11 @@ describe('POST /api/v1/auth/refresh — family reuse detection', () => {
 
 // ─── Phase 3 — mass-assignment protection (REQ-109) ─────────────────────────
 
-describe('POST /api/v1/auth/register — additionalProperties stripping', () => {
-  it('ignores an injected role field (mass-assignment defence)', async () => {
-    const createMock = vi.fn().mockResolvedValue({ ...MOCK_USER, role: 'user' });
+describe("POST /api/v1/auth/register — additionalProperties stripping", () => {
+  it("ignores an injected role field (mass-assignment defence)", async () => {
+    const createMock = vi
+      .fn()
+      .mockResolvedValue({ ...MOCK_USER, role: "user" });
 
     const app = await buildTestApp({
       prisma: {
@@ -559,25 +589,25 @@ describe('POST /api/v1/auth/register — additionalProperties stripping', () => 
           findUnique: vi.fn().mockResolvedValue(null),
           create: createMock,
         },
-        refreshToken: { create: vi.fn().mockResolvedValue({ id: 'rt' }) },
+        refreshToken: { create: vi.fn().mockResolvedValue({ id: "rt" }) },
       },
     });
 
     const res = await app.inject({
-      method: 'POST',
+      method: "POST",
       url: `${BASE_URL}/register`,
       payload: {
-        email: 'attacker@example.com',
-        password: 'password123',
-        name: 'Attacker',
-        role: 'admin', // not in schema — must be stripped
+        email: "attacker@example.com",
+        password: "password123",
+        name: "Attacker",
+        role: "admin", // not in schema — must be stripped
       },
     });
 
     expect(res.statusCode).toBe(201);
     // The Prisma create must have been called with role 'user', never 'admin'.
     const createArg = createMock.mock.calls[0]?.[0];
-    expect(createArg.data.role).toBe('user');
+    expect(createArg.data.role).toBe("user");
 
     await app.close();
   });

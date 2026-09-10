@@ -1,9 +1,9 @@
 /**
  * Core utils barrel.
  */
-export { parseDurationMs } from './date.js';
-export { randomToken } from './crypto.js';
-export { logger, createLogger } from './logger.js';
+export { parseDurationMs } from "./date.js";
+export { randomToken, hashToken } from "./crypto.js";
+export { logger, createLogger } from "./logger.js";
 export {
   normalizePagination,
   buildPageMeta,
@@ -13,4 +13,4 @@ export {
   type NormalizedPage,
   type OffsetPageMeta,
   type NormalizedCursor,
-} from './pagination.js';
+} from "./pagination.js";

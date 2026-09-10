@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance } from "fastify";
 
 /**
  * preHandler hook — attaches authenticated user context to the request logger.
@@ -6,7 +6,7 @@ import type { FastifyInstance } from 'fastify';
  * log line from an authenticated request carries userId/userRole.
  */
 export function registerPreHandlerHook(app: FastifyInstance): void {
-  app.addHook('preHandler', async (request) => {
+  app.addHook("preHandler", async (request) => {
     if (request.user) {
       request.log = request.log.child({
         userId: request.user.id,

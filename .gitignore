@@ -16,9 +16,11 @@ packages/*/dist/
 # Prisma
 prisma/generated/
 
-# Test coverage
+# Test output
 coverage/
 .nyc_output/
+test-results/
+playwright-report/
 
 # Logs
 *.log

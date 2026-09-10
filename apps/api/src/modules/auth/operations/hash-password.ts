@@ -1,4 +1,4 @@
-import argon2 from 'argon2';
+import argon2, { type HashOptions } from "argon2";
 
 /**
  * Argon2id parameters (SECURITY.md §7 — modern password hashing with a unique
@@ -9,7 +9,7 @@ import argon2 from 'argon2';
  * encodes all parameters into the output string, so verification and future
  * rehash decisions are self-describing.
  */
-const ARGON2_OPTIONS: argon2.Options = {
+const ARGON2_OPTIONS: HashOptions = {
   type: argon2.argon2id,
   memoryCost: 19_456, // 19 MiB
   timeCost: 2,
@@ -32,7 +32,7 @@ export async function hashPassword(plaintext: string): Promise<string> {
  */
 export function needsRehash(storedHash: string): boolean {
   // Legacy bcrypt hashes ($2a$/$2b$/$2y$) must be upgraded to Argon2id.
-  if (storedHash.startsWith('$2')) return true;
+  if (storedHash.startsWith("$2")) return true;
   try {
     return argon2.needsRehash(storedHash, ARGON2_OPTIONS);
   } catch {

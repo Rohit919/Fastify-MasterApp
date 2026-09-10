@@ -1,17 +1,17 @@
-import pino from 'pino';
+import pino from "pino";
 
-const isProduction = process.env.NODE_ENV === 'production';
-const logLevel = process.env.LOG_LEVEL ?? 'info';
+const isProduction = process.env.NODE_ENV === "production";
+const logLevel = process.env.LOG_LEVEL ?? "info";
 
 export const logger = pino({
   level: logLevel,
   transport: isProduction
     ? undefined
     : {
-        target: 'pino-pretty',
+        target: "pino-pretty",
         options: {
-          translateTime: 'HH:MM:ss Z',
-          ignore: 'pid,hostname',
+          translateTime: "HH:MM:ss Z",
+          ignore: "pid,hostname",
           colorize: true,
           singleLine: false,
         },
@@ -26,36 +26,36 @@ export const logger = pino({
   redact: {
     paths: [
       // Auth / session material on the standard req serializer output
-      'req.headers.authorization',
-      'req.headers.cookie',
+      "req.headers.authorization",
+      "req.headers.cookie",
       'res.headers["set-cookie"]',
-      'headers.authorization',
-      'headers.cookie',
+      "headers.authorization",
+      "headers.cookie",
       'headers["set-cookie"]',
       // Common secret-bearing fields anywhere in the log object (one level deep)
-      'password',
-      '*.password',
-      'token',
-      '*.token',
-      'accessToken',
-      '*.accessToken',
-      'refreshToken',
-      '*.refreshToken',
-      'jwt',
-      '*.jwt',
-      'apiKey',
-      '*.apiKey',
-      'clientSecret',
-      '*.clientSecret',
-      'secret',
-      '*.secret',
-      'JWT_SECRET',
-      'DATABASE_URL',
-      'DATABASE_DIRECT_URL',
-      'REDIS_URL',
-      'METRICS_TOKEN',
+      "password",
+      "*.password",
+      "token",
+      "*.token",
+      "accessToken",
+      "*.accessToken",
+      "refreshToken",
+      "*.refreshToken",
+      "jwt",
+      "*.jwt",
+      "apiKey",
+      "*.apiKey",
+      "clientSecret",
+      "*.clientSecret",
+      "secret",
+      "*.secret",
+      "JWT_SECRET",
+      "DATABASE_URL",
+      "DATABASE_DIRECT_URL",
+      "REDIS_URL",
+      "METRICS_TOKEN",
     ],
-    censor: '[REDACTED]',
+    censor: "[REDACTED]",
   },
   serializers: {
     req: pino.stdSerializers.req,
@@ -64,7 +64,7 @@ export const logger = pino({
   },
   base: {
     env: process.env.NODE_ENV,
-    revision: process.env.COMMIT_SHA ?? 'unknown',
+    revision: process.env.COMMIT_SHA ?? "unknown",
   },
 });
 

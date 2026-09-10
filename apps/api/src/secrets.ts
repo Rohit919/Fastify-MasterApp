@@ -14,26 +14,36 @@
  * Secret values are never logged.
  */
 
-type Provider = 'env' | 'aws' | 'vault' | 'doppler';
+type Provider = "env" | "aws" | "vault" | "doppler";
 
-const SECRET_KEYS = ['JWT_SECRET', 'DATABASE_URL', 'DATABASE_DIRECT_URL', 'REDIS_URL', 'METRICS_TOKEN'];
+const SECRET_KEYS = [
+  "JWT_SECRET",
+  "DATABASE_URL",
+  "DATABASE_DIRECT_URL",
+  "REDIS_URL",
+  "METRICS_TOKEN",
+];
 
 /** Redact known secret keys from any object before it could be logged. */
-export function redactSecrets(obj: Record<string, unknown>): Record<string, unknown> {
+export function redactSecrets(
+  obj: Record<string, unknown>,
+): Record<string, unknown> {
   const out = { ...obj };
   for (const k of SECRET_KEYS) {
-    if (k in out) out[k] = '***';
+    if (k in out) out[k] = "***";
   }
   return out;
 }
 
 async function loadFromAws(): Promise<Record<string, string>> {
   // Stub: replace with @aws-sdk/client-secrets-manager GetSecretValue.
-  throw new Error('SECRETS_PROVIDER=aws is not configured yet (add the AWS SDK integration).');
+  throw new Error(
+    "SECRETS_PROVIDER=aws is not configured yet (add the AWS SDK integration).",
+  );
 }
 
 async function loadFromVault(): Promise<Record<string, string>> {
-  throw new Error('SECRETS_PROVIDER=vault is not configured yet.');
+  throw new Error("SECRETS_PROVIDER=vault is not configured yet.");
 }
 
 async function loadFromDoppler(): Promise<Record<string, string>> {
@@ -42,20 +52,20 @@ async function loadFromDoppler(): Promise<Record<string, string>> {
 }
 
 export async function loadSecrets(): Promise<void> {
-  const provider = (process.env.SECRETS_PROVIDER ?? 'env') as Provider;
+  const provider = (process.env.SECRETS_PROVIDER ?? "env") as Provider;
 
   try {
     let fetched: Record<string, string> = {};
     switch (provider) {
-      case 'env':
+      case "env":
         return; // process.env is already populated (dotenv / real env)
-      case 'aws':
+      case "aws":
         fetched = await loadFromAws();
         break;
-      case 'vault':
+      case "vault":
         fetched = await loadFromVault();
         break;
-      case 'doppler':
+      case "doppler":
         fetched = await loadFromDoppler();
         break;
       default:
@@ -68,10 +78,15 @@ export async function loadSecrets(): Promise<void> {
     }
     // Log the KEYS loaded, never the values.
     // eslint-disable-next-line no-console
-    console.log(`[secrets] Loaded ${Object.keys(fetched).length} secrets from ${provider}`);
+    console.log(
+      `[secrets] Loaded ${Object.keys(fetched).length} secrets from ${provider}`,
+    );
   } catch (err) {
     // eslint-disable-next-line no-console
-    console.error(`[secrets] Failed to load secrets from ${provider}:`, (err as Error).message);
+    console.error(
+      `[secrets] Failed to load secrets from ${provider}:`,
+      (err as Error).message,
+    );
     process.exit(1);
   }
 }

@@ -1,10 +1,11 @@
-/**
- * Cryptographic helpers.
- * Thin wrappers over the Node.js Web Crypto API so call sites read clearly
- * and can be swapped/mocked in one place.
- */
+import { createHash, randomBytes } from "node:crypto";
 
-/** Generate a random opaque token (UUID v4). Used for refresh tokens. */
+/** Generate a high-entropy opaque bearer token (256 bits, base64url encoded). */
 export function randomToken(): string {
-  return crypto.randomUUID();
+  return randomBytes(32).toString("base64url");
+}
+
+/** One-way digest used before opaque session/reset tokens are persisted. */
+export function hashToken(token: string): string {
+  return createHash("sha256").update(token, "utf8").digest("hex");
 }

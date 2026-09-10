@@ -1,5 +1,5 @@
-import { useAuthStore } from '@/stores/auth.store';
-import type { PermissionKey } from '@app/api-contracts';
+import { useAuthStore } from "@/stores/auth.store";
+import type { PermissionKey } from "@app/api-contracts";
 
 /**
  * Permission helpers for components. Reads the effective permission set from

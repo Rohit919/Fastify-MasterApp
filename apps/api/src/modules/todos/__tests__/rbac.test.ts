@@ -1,32 +1,34 @@
-import { describe, it, expect, vi } from 'vitest';
-import { buildTestApp, signTestToken } from '@core/testing/test-app.js';
+import { describe, it, expect, vi } from "vitest";
+import { buildTestApp, signTestToken } from "@core/testing/test-app.js";
+import { PermissionKeys } from "@app/api-contracts";
 
-const BASE = '/api/v1/todos';
+const BASE = "/api/v1/todos";
 
-const OWNER_ID = 'user-test-id'; // matches signTestToken default
+const OWNER_ID = "user-test-id"; // matches signTestToken default
 const OTHERS_TODO = {
-  userId: 'someone-else',
-  id: 'todo-x',
-  title: 'Theirs',
-  description: 'd',
+  userId: "someone-else",
+  id: "todo-x",
+  title: "Theirs",
+  description: "d",
   completed: false,
 };
 const OWN_TODO = {
   userId: OWNER_ID,
-  id: 'todo-own',
-  title: 'Mine',
-  description: 'd',
+  id: "todo-own",
+  title: "Mine",
+  description: "d",
   completed: false,
 };
 
-describe('GET /api/v1/todos/:id — RBAC + ownership', () => {
-  it('lets a user read their OWN todo (200)', async () => {
+describe("GET /api/v1/todos/:id — RBAC + ownership", () => {
+  it("lets a user read their OWN todo (200)", async () => {
     const app = await buildTestApp({
+      permissions: [PermissionKeys.TodosRead],
       prisma: { todo: { findUnique: vi.fn().mockResolvedValue(OWN_TODO) } },
     });
     const token = signTestToken(app); // role: user, id: user-test-id
     const res = await app.inject({
-      method: 'GET',
+      method: "GET",
       url: `${BASE}/todo-own`,
       headers: { authorization: `Bearer ${token}` },
     });
@@ -36,11 +38,12 @@ describe('GET /api/v1/todos/:id — RBAC + ownership', () => {
 
   it("forbids a user reading someone else's todo (403)", async () => {
     const app = await buildTestApp({
+      permissions: [PermissionKeys.TodosRead],
       prisma: { todo: { findUnique: vi.fn().mockResolvedValue(OTHERS_TODO) } },
     });
     const token = signTestToken(app);
     const res = await app.inject({
-      method: 'GET',
+      method: "GET",
       url: `${BASE}/todo-x`,
       headers: { authorization: `Bearer ${token}` },
     });
@@ -48,13 +51,18 @@ describe('GET /api/v1/todos/:id — RBAC + ownership', () => {
     await app.close();
   });
 
-  it('lets an admin read any todo (200)', async () => {
+  it("lets an admin read any todo (200)", async () => {
     const app = await buildTestApp({
+      permissions: [PermissionKeys.TodosRead, PermissionKeys.TodosReadAll],
       prisma: { todo: { findUnique: vi.fn().mockResolvedValue(OTHERS_TODO) } },
     });
-    const token = signTestToken(app, { id: 'admin-1', email: 'a@x.com', role: 'admin' });
+    const token = signTestToken(app, {
+      id: "admin-1",
+      email: "a@x.com",
+      role: "admin",
+    });
     const res = await app.inject({
-      method: 'GET',
+      method: "GET",
       url: `${BASE}/todo-x`,
       headers: { authorization: `Bearer ${token}` },
     });
@@ -62,13 +70,14 @@ describe('GET /api/v1/todos/:id — RBAC + ownership', () => {
     await app.close();
   });
 
-  it('returns 404 when the todo does not exist', async () => {
+  it("returns 404 when the todo does not exist", async () => {
     const app = await buildTestApp({
+      permissions: [PermissionKeys.TodosRead],
       prisma: { todo: { findUnique: vi.fn().mockResolvedValue(null) } },
     });
     const token = signTestToken(app);
     const res = await app.inject({
-      method: 'GET',
+      method: "GET",
       url: `${BASE}/missing`,
       headers: { authorization: `Bearer ${token}` },
     });

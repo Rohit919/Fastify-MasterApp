@@ -1,6 +1,6 @@
-import type { OperationContext } from '@core/orchestration/index.js';
-import type { PrismaClient } from '@prisma/client';
-import type { Queue } from 'bullmq';
+import type { OperationContext } from "@core/orchestration/index.js";
+import type { PrismaClient } from "@prisma/client";
+import type { Queue } from "bullmq";
 
 // Todo domain type — matches Prisma schema
 export interface Todo {
@@ -17,6 +17,7 @@ export interface CreateTodoInput {
   title: string;
   description: string;
   userId: string;
+  idempotencyKey?: string;
 }
 
 export interface UpdateTodoInput {
@@ -34,6 +35,7 @@ export interface TodoPipelineContext extends OperationContext {
   /** Notifications queue. Optional so the pipeline runs without a queue (tests). */
   notificationsQueue?: Queue;
   todo?: Todo;
+  outboxEventId?: string;
   todos?: Todo[];
   validationErrors?: string[];
 }

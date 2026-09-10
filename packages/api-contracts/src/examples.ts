@@ -1,4 +1,4 @@
-import { Type, type Static } from '@sinclair/typebox';
+import { Type, type Static } from "@sinclair/typebox";
 
 /**
  * Example contracts — shared between the Fastify API and the admin.
@@ -15,8 +15,8 @@ export const Example = Type.Object({
   id: Type.String(),
   title: Type.String(),
   description: Type.String(),
-  createdAt: Type.String({ format: 'date-time' }),
-  updatedAt: Type.String({ format: 'date-time' }),
+  createdAt: Type.String({ format: "date-time" }),
+  updatedAt: Type.String({ format: "date-time" }),
 });
 export type Example = Static<typeof Example>;
 

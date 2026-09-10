@@ -1,4 +1,4 @@
-import { API_VERSION } from './common.js';
+import { API_VERSION } from "./common.js";
 
 /**
  * Health / ops endpoint paths.
@@ -14,6 +14,6 @@ export const HEALTH_ENDPOINTS = {
   READY: `${API_VERSION}/ready`,
 
   // Configurable, outside the versioned business API (defaults shown).
-  METRICS: '/metrics',
-  DOCUMENTATION: '/documentation',
+  METRICS: "/metrics",
+  DOCUMENTATION: "/documentation",
 } as const;

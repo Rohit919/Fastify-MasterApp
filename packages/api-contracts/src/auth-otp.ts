@@ -1,4 +1,4 @@
-import { Type, type Static } from '@sinclair/typebox';
+import { Type, type Static } from "@sinclair/typebox";
 
 /**
  * OTP / password-reset / email-verification contracts.
@@ -11,8 +11,8 @@ import { Type, type Static } from '@sinclair/typebox';
  *   forgot-password and resend-verification never reveal whether an account exists.
  */
 
-const EMAIL = Type.String({ format: 'email', maxLength: 254 });
-const OTP = Type.String({ minLength: 6, maxLength: 6, pattern: '^[0-9]{6}$' });
+const EMAIL = Type.String({ format: "email", maxLength: 254 });
+const OTP = Type.String({ minLength: 6, maxLength: 6, pattern: "^[0-9]{6}$" });
 const PASSWORD = Type.String({ minLength: 8, maxLength: 128 });
 
 // ── Email verification ──────────────────────────────────────────────────────

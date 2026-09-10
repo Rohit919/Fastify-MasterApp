@@ -1,4 +1,4 @@
-import { ErrorCode } from './error-codes.js';
+import { ErrorCode } from "./error-codes.js";
 
 /**
  * Canonical error envelope (API_CONVENTIONS §39 / ERROR_HANDLING §93).
@@ -12,6 +12,7 @@ import { ErrorCode } from './error-codes.js';
  * not-found handler so every error path is byte-consistent.
  */
 export interface ErrorResponse {
+  success: false;
   error: {
     code: string;
     message: string;
@@ -37,6 +38,7 @@ export interface ErrorEnvelopeInput {
 
 export function formatErrorResponse(input: ErrorEnvelopeInput): ErrorResponse {
   return {
+    success: false,
     error: {
       code: input.code ?? ErrorCode.INTERNAL_ERROR,
       message: input.message,
@@ -45,7 +47,9 @@ export function formatErrorResponse(input: ErrorEnvelopeInput): ErrorResponse {
       ...(input.details !== undefined ? { details: input.details } : {}),
       timestamp: new Date().toISOString(),
       ...(input.path !== undefined ? { path: input.path } : {}),
-      ...(input.retryAfter !== undefined ? { retryAfter: input.retryAfter } : {}),
+      ...(input.retryAfter !== undefined
+        ? { retryAfter: input.retryAfter }
+        : {}),
     },
   };
 }

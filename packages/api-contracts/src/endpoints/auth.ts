@@ -1,4 +1,4 @@
-import { API_VERSION } from './common.js';
+import { API_VERSION } from "./common.js";
 
 /**
  * Authentication endpoint paths. Mirrors the routes registered under

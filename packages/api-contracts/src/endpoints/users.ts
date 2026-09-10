@@ -1,4 +1,4 @@
-import { API_VERSION, encodeId } from './common.js';
+import { API_VERSION, encodeId } from "./common.js";
 
 /**
  * User endpoint paths. Mirrors routes registered under `/api/v1/users`.
@@ -28,7 +28,7 @@ export const USER_ENDPOINTS = {
  * absolute paths above without double-prefixing.
  */
 export const USER_ROUTES = {
-  LIST: '/',
-  ME: '/me',
-  BY_ID: '/:userId',
+  LIST: "/",
+  ME: "/me",
+  BY_ID: "/:userId",
 } as const;

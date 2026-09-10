@@ -1,5 +1,11 @@
-import { createHmac, createHash, randomInt, randomBytes, timingSafeEqual } from 'node:crypto';
-import type { PrismaClient, OtpPurpose } from '@prisma/client';
+import {
+  createHmac,
+  createHash,
+  randomInt,
+  randomBytes,
+  timingSafeEqual,
+} from "node:crypto";
+import type { PrismaClient, OtpPurpose } from "@prisma/client";
 
 /**
  * OTP service.
@@ -21,7 +27,7 @@ export const RESET_TOKEN_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
 /** Cryptographically-random 6-digit numeric code, zero-padded. */
 function generateCode(): string {
-  return randomInt(0, 1_000_000).toString().padStart(6, '0');
+  return randomInt(0, 1_000_000).toString().padStart(6, "0");
 }
 
 /**
@@ -30,17 +36,17 @@ function generateCode(): string {
  * also having the secret.
  */
 function hashCode(code: string, secret: string): string {
-  return createHmac('sha256', secret).update(code).digest('hex');
+  return createHmac("sha256", secret).update(code).digest("hex");
 }
 
 function hashToken(token: string): string {
-  return createHash('sha256').update(token).digest('hex');
+  return createHash("sha256").update(token).digest("hex");
 }
 
 /** Constant-time hex-string comparison. */
 function safeEqualHex(a: string, b: string): boolean {
-  const ab = Buffer.from(a, 'hex');
-  const bb = Buffer.from(b, 'hex');
+  const ab = Buffer.from(a, "hex");
+  const bb = Buffer.from(b, "hex");
   if (ab.length !== bb.length) return false;
   return timingSafeEqual(ab, bb);
 }
@@ -106,7 +112,7 @@ export class OtpService {
 
     const challenge = await prisma.otpChallenge.findFirst({
       where: { destination, purpose: input.purpose, consumedAt: null },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
     });
 
     if (!challenge) return { ok: false };
@@ -127,7 +133,10 @@ export class OtpService {
       return { ok: false };
     }
 
-    const matches = safeEqualHex(challenge.codeHash, hashCode(input.code, secret));
+    const matches = safeEqualHex(
+      challenge.codeHash,
+      hashCode(input.code, secret),
+    );
 
     if (!matches) {
       const attempts = challenge.attempts + 1;
@@ -136,7 +145,9 @@ export class OtpService {
         data: {
           attempts,
           // Burn the challenge once attempts are exhausted.
-          ...(attempts >= challenge.maxAttempts ? { consumedAt: new Date() } : {}),
+          ...(attempts >= challenge.maxAttempts
+            ? { consumedAt: new Date() }
+            : {}),
         },
       });
       return { ok: false };
@@ -155,9 +166,11 @@ export class OtpService {
    * Issue a single-use password-reset token for a user. Returns the plaintext
    * token (stored only as a SHA-256 hash).
    */
-  async issueResetToken(userId: string): Promise<{ token: string; expiresAt: Date }> {
+  async issueResetToken(
+    userId: string,
+  ): Promise<{ token: string; expiresAt: Date }> {
     const { prisma } = this.deps;
-    const token = randomBytes(32).toString('hex');
+    const token = randomBytes(32).toString("hex");
     const expiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MS);
 
     await prisma.passwordResetToken.create({
@@ -171,7 +184,9 @@ export class OtpService {
    * Consume a password-reset token. Returns the userId on success.
    * The token is marked consumed atomically so it cannot be replayed.
    */
-  async consumeResetToken(token: string): Promise<{ ok: true; userId: string } | { ok: false }> {
+  async consumeResetToken(
+    token: string,
+  ): Promise<{ ok: true; userId: string } | { ok: false }> {
     const { prisma } = this.deps;
     const record = await prisma.passwordResetToken.findUnique({
       where: { tokenHash: hashToken(token) },

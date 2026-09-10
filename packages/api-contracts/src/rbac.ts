@@ -1,4 +1,4 @@
-import { Type, type Static } from '@sinclair/typebox';
+import { Type, type Static } from "@sinclair/typebox";
 
 /**
  * RBAC contracts — shared between the Fastify API and the React admin.
@@ -18,57 +18,60 @@ import { Type, type Static } from '@sinclair/typebox';
 // enforcement/seed/UI. Adding a permission is a deliberate contract change.
 export const PermissionKeys = {
   // Dashboard
-  DashboardRead: 'dashboard.read',
+  DashboardRead: "dashboard.read",
 
   // Users
-  UsersRead: 'users.read',
-  UsersCreate: 'users.create',
-  UsersUpdate: 'users.update',
-  UsersDelete: 'users.delete',
+  UsersRead: "users.read",
+  UsersCreate: "users.create",
+  UsersUpdate: "users.update",
+  UsersDelete: "users.delete",
 
   // User ↔ role assignment (kept separate from users.update so a user admin is
   // not automatically allowed to change role assignments — privilege boundary)
-  UsersRolesRead: 'users.roles.read',
-  UsersRolesUpdate: 'users.roles.update',
+  UsersRolesRead: "users.roles.read",
+  UsersRolesUpdate: "users.roles.update",
 
   // Roles
-  RolesRead: 'roles.read',
-  RolesCreate: 'roles.create',
-  RolesUpdate: 'roles.update',
-  RolesDelete: 'roles.delete',
+  RolesRead: "roles.read",
+  RolesCreate: "roles.create",
+  RolesUpdate: "roles.update",
+  RolesDelete: "roles.delete",
 
   // Permissions (read-only registry to admins)
-  PermissionsRead: 'permissions.read',
+  PermissionsRead: "permissions.read",
 
   // Todos
-  TodosRead: 'todos.read',
-  TodosCreate: 'todos.create',
-  TodosUpdate: 'todos.update',
-  TodosDelete: 'todos.delete',
-  TodosReadAll: 'todos.read_all',
+  TodosRead: "todos.read",
+  TodosCreate: "todos.create",
+  TodosUpdate: "todos.update",
+  TodosDelete: "todos.delete",
+  TodosReadAll: "todos.read_all",
 
   // Orders
-  OrdersRead: 'orders.read',
-  OrdersCreate: 'orders.create',
-  OrdersUpdate: 'orders.update',
-  OrdersCancel: 'orders.cancel',
-  OrdersDelete: 'orders.delete',
+  OrdersRead: "orders.read",
+  OrdersReadAll: "orders.read_all",
+  OrdersCreate: "orders.create",
+  OrdersUpdate: "orders.update",
+  OrdersCancel: "orders.cancel",
+  OrdersDelete: "orders.delete",
 
   // Audit
-  AuditRead: 'audit.read',
+  AuditRead: "audit.read",
 
   // Operational metrics / diagnostics
-  MetricsRead: 'metrics.read',
+  MetricsRead: "metrics.read",
 
   // Settings
-  SettingsRead: 'settings.read',
-  SettingsUpdate: 'settings.update',
+  SettingsRead: "settings.read",
+  SettingsUpdate: "settings.update",
 } as const;
 
-export type PermissionKey = (typeof PermissionKeys)[keyof typeof PermissionKeys];
+export type PermissionKey =
+  (typeof PermissionKeys)[keyof typeof PermissionKeys];
 
 /** Every permission key as a flat, iterable list (used by the seed). */
-export const ALL_PERMISSION_KEYS: PermissionKey[] = Object.values(PermissionKeys);
+export const ALL_PERMISSION_KEYS: PermissionKey[] =
+  Object.values(PermissionKeys);
 
 /** Runtime guard: is a string a known permission key? */
 export function isPermissionKey(value: string): value is PermissionKey {
@@ -79,11 +82,12 @@ export function isPermissionKey(value: string): value is PermissionKey {
 // Stable role names. SUPER_ADMIN is the platform break-glass role and is
 // specially protected (only a SUPER_ADMIN may grant/remove it).
 export const SystemRoles = {
-  SuperAdmin: 'SUPER_ADMIN',
-  Admin: 'ADMIN',
-  Manager: 'MANAGER',
-  Support: 'SUPPORT',
-  Viewer: 'VIEWER',
+  SuperAdmin: "SUPER_ADMIN",
+  Admin: "ADMIN",
+  Manager: "MANAGER",
+  Support: "SUPPORT",
+  Viewer: "VIEWER",
+  User: "USER",
 } as const;
 
 export type SystemRoleName = (typeof SystemRoles)[keyof typeof SystemRoles];
@@ -144,7 +148,9 @@ export type UpdateRoleBody = Static<typeof UpdateRoleBody>;
 export const UpdateRolePermissionsBody = Type.Object({
   permissions: Type.Array(Type.String(), { maxItems: 200 }),
 });
-export type UpdateRolePermissionsBody = Static<typeof UpdateRolePermissionsBody>;
+export type UpdateRolePermissionsBody = Static<
+  typeof UpdateRolePermissionsBody
+>;
 
 export const SetUserRolesBody = Type.Object({
   // Role names to assign to the user. Replaces the user's current role set.

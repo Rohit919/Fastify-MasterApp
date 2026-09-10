@@ -8,7 +8,7 @@
  * The registry owns PATHS only — never hosts, query params, methods, or auth
  * (API_ENDPOINTS §6, §26, §31, §41).
  */
-export const API_PREFIX = '/api';
+export const API_PREFIX = "/api";
 export const API_VERSION = `${API_PREFIX}/v1`;
 
 /** Safely build a dynamic path segment (API_ENDPOINTS §22). */

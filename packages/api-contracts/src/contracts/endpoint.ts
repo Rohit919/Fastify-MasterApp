@@ -1,6 +1,6 @@
-import type { TSchema } from '@sinclair/typebox';
-import type { HttpMethod } from './http.js';
-import { ErrorCode, ErrorEnvelope } from '../common.js';
+import type { TSchema } from "@sinclair/typebox";
+import type { HttpMethod } from "./http.js";
+import { ErrorCode, ErrorEnvelope } from "../common.js";
 
 /**
  * Stable error code → HTTP status (ERROR_HANDLING §6). Used to turn a
@@ -44,7 +44,7 @@ export interface ApiEndpoint {
   /** Absolute path incl. the /api/v1 prefix. Uses Fastify `:param` syntax. */
   path: string;
 
-  auth: 'public' | 'required';
+  auth: "public" | "required";
   /** Required permission key (stable). Descriptive — the API still enforces it. */
   permission?: string;
 
@@ -103,7 +103,7 @@ export interface ToFastifySchemaOptions {
 
 export function toFastifySchema(
   endpoint: ApiEndpoint,
-  options: ToFastifySchemaOptions = {}
+  options: ToFastifySchemaOptions = {},
 ): FastifyRouteSchema {
   const schema: FastifyRouteSchema = {};
   if (endpoint.params) schema.params = endpoint.params;
@@ -128,7 +128,7 @@ export function toFastifySchema(
   if (endpoint.description) schema.description = endpoint.description;
   if (endpoint.tags) schema.tags = endpoint.tags;
   if (endpoint.deprecated) schema.deprecated = endpoint.deprecated;
-  if (endpoint.auth === 'required') schema.security = [{ bearerAuth: [] }];
+  if (endpoint.auth === "required") schema.security = [{ bearerAuth: [] }];
   return schema;
 }
 
@@ -136,11 +136,16 @@ export function toFastifySchema(
  * Resolve a contract path into a concrete URL by substituting `:param`
  * segments with encoded values. Extra params are ignored; missing ones throw.
  */
-export function buildPath(endpoint: ApiEndpoint, params: Record<string, string> = {}): string {
+export function buildPath(
+  endpoint: ApiEndpoint,
+  params: Record<string, string> = {},
+): string {
   return endpoint.path.replace(/:([A-Za-z0-9_]+)/g, (_match, name: string) => {
     const value = params[name];
     if (value === undefined) {
-      throw new Error(`Missing path parameter "${name}" for ${endpoint.method} ${endpoint.path}`);
+      throw new Error(
+        `Missing path parameter "${name}" for ${endpoint.method} ${endpoint.path}`,
+      );
     }
     return encodeURIComponent(value);
   });

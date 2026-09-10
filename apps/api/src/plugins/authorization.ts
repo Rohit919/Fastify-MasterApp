@@ -1,6 +1,6 @@
-import fp from 'fastify-plugin';
-import type { FastifyPluginAsync } from 'fastify';
-import { AuthorizationService } from '@core/authorization/index.js';
+import fp from "fastify-plugin";
+import type { FastifyPluginAsync } from "fastify";
+import { AuthorizationService } from "@core/authorization/index.js";
 
 /**
  * Registers the AuthorizationService as `fastify.authorization`.
@@ -9,16 +9,16 @@ import { AuthorizationService } from '@core/authorization/index.js';
  */
 const authorizationPlugin: FastifyPluginAsync = async (fastify) => {
   const service = new AuthorizationService(fastify.prisma);
-  fastify.decorate('authorization', service);
+  fastify.decorate("authorization", service);
 };
 
-declare module 'fastify' {
+declare module "fastify" {
   interface FastifyInstance {
     authorization: AuthorizationService;
   }
 }
 
 export default fp(authorizationPlugin, {
-  name: 'authorization',
-  dependencies: ['prisma'],
+  name: "authorization",
+  dependencies: ["prisma"],
 });

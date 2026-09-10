@@ -1,4 +1,4 @@
-import { Type, type Static } from '@sinclair/typebox';
+import { Type, type Static } from "@sinclair/typebox";
 
 /**
  * Todo contracts — shared between the Fastify API and the admin.
@@ -8,8 +8,15 @@ import { Type, type Static } from '@sinclair/typebox';
 
 // ── Requests ──────────────────────────────────────────────────────────────────
 export const CreateTodoBody = Type.Object({
-  title: Type.String({ minLength: 1, maxLength: 200, description: 'Todo title' }),
-  description: Type.String({ maxLength: 1000, description: 'Todo description' }),
+  title: Type.String({
+    minLength: 1,
+    maxLength: 200,
+    description: "Todo title",
+  }),
+  description: Type.String({
+    maxLength: 1000,
+    description: "Todo description",
+  }),
 });
 export type CreateTodoBody = Static<typeof CreateTodoBody>;
 
@@ -21,8 +28,8 @@ export const Todo = Type.Object({
   description: Type.String(),
   completed: Type.Boolean(),
   userId: Type.String(),
-  createdAt: Type.String({ format: 'date-time' }),
-  updatedAt: Type.String({ format: 'date-time' }),
+  createdAt: Type.String({ format: "date-time" }),
+  updatedAt: Type.String({ format: "date-time" }),
 });
 export type Todo = Static<typeof Todo>;
 
@@ -41,9 +48,9 @@ export const CreateTodoResponse = Type.Object({
   data: Todo,
   metadata: Type.Optional(
     Type.Object({
-      duration: Type.Number({ description: 'Total execution time in ms' }),
+      duration: Type.Number({ description: "Total execution time in ms" }),
       metrics: Type.Optional(Type.Record(Type.String(), Type.Number())),
-    })
+    }),
   ),
 });
 export type CreateTodoResponse = Static<typeof CreateTodoResponse>;

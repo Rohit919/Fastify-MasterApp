@@ -21,7 +21,7 @@ export interface OperationContext extends BasePipelineContext {
 }
 
 export type PipelineOperation<TContext extends OperationContext> = (
-  context: TContext
+  context: TContext,
 ) => Promise<TContext>;
 
 export interface PipelineStage<TContext extends OperationContext> {
@@ -51,9 +51,9 @@ export class OrchestratorError extends Error {
     message: string,
     public readonly stage: string,
     public readonly context?: unknown,
-    public readonly originalError?: Error
+    public readonly originalError?: Error,
   ) {
     super(message);
-    this.name = 'OrchestratorError';
+    this.name = "OrchestratorError";
   }
 }

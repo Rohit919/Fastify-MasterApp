@@ -19,16 +19,16 @@
  * rebinding at validation time. Callers that then fetch should also pin/limit
  * redirects and set timeouts (see core/circuit-breaker.ts).
  */
-import { lookup } from 'node:dns/promises';
-import { isIP } from 'node:net';
-import { AppError } from '@core/errors/app-error.js';
-import { ErrorCode } from '@core/errors/error-codes.js';
+import { lookup } from "node:dns/promises";
+import { isIP } from "node:net";
+import { AppError } from "@core/errors/app-error.js";
+import { ErrorCode } from "@core/errors/error-codes.js";
 
 /** Thrown when a URL fails SSRF validation. 400 — the request is malformed/unsafe. */
 export class SsrfError extends AppError {
   constructor(message: string, details?: unknown) {
     super(message, 400, true, details, ErrorCode.SSRF_BLOCKED);
-    this.name = 'SsrfError';
+    this.name = "SsrfError";
   }
 }
 
@@ -45,21 +45,21 @@ export interface SsrfCheckOptions {
   resolveDns?: boolean;
 }
 
-const DEFAULT_PROTOCOLS = ['https:'];
+const DEFAULT_PROTOCOLS = ["https:"];
 
 /**
  * Cloud metadata / instance identity endpoints. These are the classic SSRF
  * targets for credential theft (AWS/GCP/Azure/Alibaba/DigitalOcean).
  */
 const BLOCKED_HOSTNAMES = new Set([
-  'metadata.google.internal',
-  'metadata.goog',
+  "metadata.google.internal",
+  "metadata.goog",
 ]);
 
 const BLOCKED_IPS = new Set([
-  '169.254.169.254', // AWS/GCP/Azure/OpenStack IMDS
-  'fd00:ec2::254', // AWS IMDSv2 over IPv6
-  '100.100.100.200', // Alibaba Cloud metadata
+  "169.254.169.254", // AWS/GCP/Azure/OpenStack IMDS
+  "fd00:ec2::254", // AWS IMDSv2 over IPv6
+  "100.100.100.200", // Alibaba Cloud metadata
 ]);
 
 /**
@@ -67,7 +67,7 @@ const BLOCKED_IPS = new Set([
  * prefix checks are reliable. We only need coarse matching, not full RFC 5952.
  */
 function normalizeIpv6(ip: string): string {
-  return ip.toLowerCase().replace(/^::ffff:/, ''); // unwrap IPv4-mapped IPv6
+  return ip.toLowerCase().replace(/^::ffff:/, ""); // unwrap IPv4-mapped IPv6
 }
 
 /** True when the literal IP address is not routable on the public internet. */
@@ -78,8 +78,11 @@ export function isPrivateIp(ip: string): boolean {
   if (BLOCKED_IPS.has(ip.toLowerCase())) return true;
 
   if (kind === 4) {
-    const parts = ip.split('.').map((p) => Number(p));
-    if (parts.length !== 4 || parts.some((n) => Number.isNaN(n) || n < 0 || n > 255)) {
+    const parts = ip.split(".").map((p) => Number(p));
+    if (
+      parts.length !== 4 ||
+      parts.some((n) => Number.isNaN(n) || n < 0 || n > 255)
+    ) {
       return true; // malformed → treat as unsafe
     }
     const [a, b] = parts as [number, number, number, number];
@@ -99,10 +102,10 @@ export function isPrivateIp(ip: string): boolean {
   const v6 = normalizeIpv6(ip);
   // If unwrapping produced an IPv4 literal, re-check as v4.
   if (isIP(v6) === 4) return isPrivateIp(v6);
-  if (v6 === '::1' || v6 === '::') return true; // loopback / unspecified
-  if (v6.startsWith('fe80')) return true; // link-local
-  if (v6.startsWith('fc') || v6.startsWith('fd')) return true; // fc00::/7 unique-local
-  if (v6.startsWith('ff')) return true; // multicast
+  if (v6 === "::1" || v6 === "::") return true; // loopback / unspecified
+  if (v6.startsWith("fe80")) return true; // link-local
+  if (v6.startsWith("fc") || v6.startsWith("fd")) return true; // fc00::/7 unique-local
+  if (v6.startsWith("ff")) return true; // multicast
   return false;
 }
 
@@ -110,7 +113,7 @@ function hostAllowed(hostname: string, allowedHosts: string[]): boolean {
   const host = hostname.toLowerCase();
   return allowedHosts.some((entry) => {
     const e = entry.toLowerCase();
-    if (e.startsWith('.')) return host === e.slice(1) || host.endsWith(e);
+    if (e.startsWith(".")) return host === e.slice(1) || host.endsWith(e);
     return host === e;
   });
 }
@@ -119,7 +122,10 @@ function hostAllowed(hostname: string, allowedHosts: string[]): boolean {
  * Validate a user-supplied URL for outbound fetching. Returns the parsed URL on
  * success; throws {@link SsrfError} otherwise. Always `await` this before fetch.
  */
-export async function assertSafeUrl(rawUrl: string, options: SsrfCheckOptions = {}): Promise<URL> {
+export async function assertSafeUrl(
+  rawUrl: string,
+  options: SsrfCheckOptions = {},
+): Promise<URL> {
   const allowedProtocols = options.allowedProtocols ?? DEFAULT_PROTOCOLS;
   const resolveDns = options.resolveDns ?? true;
 
@@ -127,7 +133,7 @@ export async function assertSafeUrl(rawUrl: string, options: SsrfCheckOptions = 
   try {
     url = new URL(rawUrl);
   } catch {
-    throw new SsrfError('Invalid URL.');
+    throw new SsrfError("Invalid URL.");
   }
 
   if (!allowedProtocols.includes(url.protocol)) {
@@ -136,30 +142,35 @@ export async function assertSafeUrl(rawUrl: string, options: SsrfCheckOptions = 
 
   // Embedded credentials are a common SSRF/obfuscation vector.
   if (url.username || url.password) {
-    throw new SsrfError('URLs with embedded credentials are not allowed.');
+    throw new SsrfError("URLs with embedded credentials are not allowed.");
   }
 
-  const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, ''); // strip IPv6 brackets
+  const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, ""); // strip IPv6 brackets
 
   if (BLOCKED_HOSTNAMES.has(hostname)) {
-    throw new SsrfError('URL host is not allowed.');
+    throw new SsrfError("URL host is not allowed.");
   }
 
   if (options.allowedHosts && !hostAllowed(hostname, options.allowedHosts)) {
-    throw new SsrfError('URL host is not on the allowlist.');
+    throw new SsrfError("URL host is not on the allowlist.");
   }
 
   // Literal IP in the URL — check directly, no DNS needed.
   if (isIP(hostname) !== 0) {
     if (isPrivateIp(hostname)) {
-      throw new SsrfError('URL resolves to a non-public address.');
+      throw new SsrfError("URL resolves to a non-public address.");
     }
     return url;
   }
 
   // Reject obviously unqualified/internal hostnames (e.g. "localhost", "db").
-  if (hostname === 'localhost' || hostname.endsWith('.localhost') || hostname.endsWith('.internal') || hostname.endsWith('.local')) {
-    throw new SsrfError('URL resolves to a non-public address.');
+  if (
+    hostname === "localhost" ||
+    hostname.endsWith(".localhost") ||
+    hostname.endsWith(".internal") ||
+    hostname.endsWith(".local")
+  ) {
+    throw new SsrfError("URL resolves to a non-public address.");
   }
 
   if (resolveDns) {
@@ -167,14 +178,14 @@ export async function assertSafeUrl(rawUrl: string, options: SsrfCheckOptions = 
     try {
       addresses = await lookup(hostname, { all: true });
     } catch {
-      throw new SsrfError('URL host could not be resolved.');
+      throw new SsrfError("URL host could not be resolved.");
     }
     if (addresses.length === 0) {
-      throw new SsrfError('URL host could not be resolved.');
+      throw new SsrfError("URL host could not be resolved.");
     }
     for (const { address } of addresses) {
       if (isPrivateIp(address)) {
-        throw new SsrfError('URL resolves to a non-public address.');
+        throw new SsrfError("URL resolves to a non-public address.");
       }
     }
   }
@@ -183,7 +194,10 @@ export async function assertSafeUrl(rawUrl: string, options: SsrfCheckOptions = 
 }
 
 /** Non-throwing variant — returns true if the URL passes SSRF validation. */
-export async function isSafeUrl(rawUrl: string, options?: SsrfCheckOptions): Promise<boolean> {
+export async function isSafeUrl(
+  rawUrl: string,
+  options?: SsrfCheckOptions,
+): Promise<boolean> {
   try {
     await assertSafeUrl(rawUrl, options);
     return true;

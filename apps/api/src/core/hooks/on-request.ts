@@ -1,5 +1,5 @@
-import type { FastifyInstance } from 'fastify';
-import { trace } from '@opentelemetry/api';
+import type { FastifyInstance } from "fastify";
+import { trace } from "@opentelemetry/api";
 
 /**
  * onRequest hook — correlates traces with logs.
@@ -10,11 +10,14 @@ import { trace } from '@opentelemetry/api';
  * is no active span and this is a cheap no-op.
  */
 export function registerOnRequestHook(app: FastifyInstance): void {
-  app.addHook('onRequest', async (request) => {
+  app.addHook("onRequest", async (request) => {
     const span = trace.getActiveSpan();
     if (span) {
       const ctx = span.spanContext();
-      request.log = request.log.child({ traceId: ctx.traceId, spanId: ctx.spanId });
+      request.log = request.log.child({
+        traceId: ctx.traceId,
+        spanId: ctx.spanId,
+      });
     }
   });
 }

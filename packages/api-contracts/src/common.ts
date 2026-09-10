@@ -1,4 +1,4 @@
-import { Type, type Static, type TSchema } from '@sinclair/typebox';
+import { Type, type Static, type TSchema } from "@sinclair/typebox";
 
 /**
  * Shared response envelopes and error contracts used across all modules.
@@ -19,37 +19,43 @@ import { Type, type Static, type TSchema } from '@sinclair/typebox';
 // branch on codes without importing server code.
 export const ErrorCode = {
   // Generic
-  VALIDATION_ERROR: 'VALIDATION_ERROR',
-  UNAUTHORIZED: 'UNAUTHORIZED',
-  FORBIDDEN: 'FORBIDDEN',
-  NOT_FOUND: 'NOT_FOUND',
-  CONFLICT: 'CONFLICT',
-  RATE_LIMITED: 'RATE_LIMITED',
-  SERVICE_UNAVAILABLE: 'SERVICE_UNAVAILABLE',
-  INTERNAL_ERROR: 'INTERNAL_ERROR',
+  VALIDATION_ERROR: "VALIDATION_ERROR",
+  UNAUTHORIZED: "UNAUTHORIZED",
+  FORBIDDEN: "FORBIDDEN",
+  NOT_FOUND: "NOT_FOUND",
+  CONFLICT: "CONFLICT",
+  RATE_LIMITED: "RATE_LIMITED",
+  SERVICE_UNAVAILABLE: "SERVICE_UNAVAILABLE",
+  INTERNAL_ERROR: "INTERNAL_ERROR",
 
   // Authentication-specific (API_CONTRACTS §17)
-  INVALID_CREDENTIALS: 'INVALID_CREDENTIALS',
-  ACCOUNT_LOCKED: 'ACCOUNT_LOCKED',
-  TOKEN_MISSING: 'TOKEN_MISSING',
-  TOKEN_INVALID: 'TOKEN_INVALID',
-  TOKEN_EXPIRED: 'TOKEN_EXPIRED',
-  TOKEN_REVOKED: 'TOKEN_REVOKED',
-  OTP_INVALID: 'OTP_INVALID',
-  OTP_EXPIRED: 'OTP_EXPIRED',
+  INVALID_CREDENTIALS: "INVALID_CREDENTIALS",
+  ACCOUNT_LOCKED: "ACCOUNT_LOCKED",
+  TOKEN_MISSING: "TOKEN_MISSING",
+  TOKEN_INVALID: "TOKEN_INVALID",
+  TOKEN_EXPIRED: "TOKEN_EXPIRED",
+  TOKEN_REVOKED: "TOKEN_REVOKED",
+  OTP_INVALID: "OTP_INVALID",
+  OTP_EXPIRED: "OTP_EXPIRED",
 } as const;
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
 
 // ── Error envelope ───────────────────────────────────────────────────────────
 export const ApiError = Type.Object({
   /** Stable machine-readable code — clients branch on this, not the message. */
-  code: Type.Optional(Type.String({ description: 'Stable machine-readable error code' })),
-  message: Type.String({ description: 'Human-readable message (may change over time)' }),
+  code: Type.Optional(
+    Type.String({ description: "Stable machine-readable error code" }),
+  ),
+  message: Type.String({
+    description: "Human-readable message (may change over time)",
+  }),
   /** HTTP status echoed in the body for convenience. */
   statusCode: Type.Optional(Type.Number()),
-  requestId: Type.Optional(Type.String({ description: 'Correlates with server logs' })),
+  requestId: Type.Optional(
+    Type.String({ description: "Correlates with server logs" }),
+  ),
   details: Type.Optional(Type.Unknown()),
-  timestamp: Type.Optional(Type.String({ format: 'date-time' })),
+  timestamp: Type.Optional(Type.String({ format: "date-time" })),
   path: Type.Optional(Type.String()),
   /** Present on 429 responses. */
   retryAfter: Type.Optional(Type.Number()),
@@ -57,7 +63,7 @@ export const ApiError = Type.Object({
 export type ApiError = Static<typeof ApiError>;
 
 export const ErrorEnvelope = Type.Object({
-  success: Type.Optional(Type.Literal(false)),
+  success: Type.Literal(false),
   error: ApiError,
 });
 export type ErrorEnvelope = Static<typeof ErrorEnvelope>;
@@ -96,15 +102,19 @@ export type CursorPageMeta = Static<typeof CursorPageMeta>;
 /** Standard offset pagination query params. Coerced/validated by Fastify+ajv. */
 export const PaginationQuery = Type.Object({
   page: Type.Optional(
-    Type.Integer({ minimum: 1, default: PAGINATION_DEFAULTS.page, description: 'Page number (1-based)' })
+    Type.Integer({
+      minimum: 1,
+      default: PAGINATION_DEFAULTS.page,
+      description: "Page number (1-based)",
+    }),
   ),
   pageSize: Type.Optional(
     Type.Integer({
       minimum: PAGINATION_DEFAULTS.minPageSize,
       maximum: PAGINATION_DEFAULTS.maxPageSize,
       default: PAGINATION_DEFAULTS.pageSize,
-      description: 'Items per page (1–100)',
-    })
+      description: "Items per page (1–100)",
+    }),
   ),
 });
 export type PaginationQuery = Static<typeof PaginationQuery>;
@@ -116,7 +126,7 @@ export const CursorQuery = Type.Object({
       minimum: PAGINATION_DEFAULTS.minPageSize,
       maximum: PAGINATION_DEFAULTS.maxPageSize,
       default: PAGINATION_DEFAULTS.pageSize,
-    })
+    }),
   ),
   cursor: Type.Optional(Type.String()),
 });
@@ -126,7 +136,9 @@ export type CursorQuery = Static<typeof CursorQuery>;
 export const SortQuery = Type.Object({
   sortBy: Type.Optional(Type.String()),
   sortOrder: Type.Optional(
-    Type.Union([Type.Literal('asc'), Type.Literal('desc')], { default: 'desc' })
+    Type.Union([Type.Literal("asc"), Type.Literal("desc")], {
+      default: "desc",
+    }),
   ),
 });
 export type SortQuery = Static<typeof SortQuery>;
@@ -134,12 +146,13 @@ export type SortQuery = Static<typeof SortQuery>;
 // ── Envelope builders ────────────────────────────────────────────────────────
 /** Wrap a schema in the canonical single-resource envelope: `{ data }`. */
 export function DataEnvelope<T extends TSchema>(data: T) {
-  return Type.Object({ data });
+  return Type.Object({ success: Type.Literal(true), data });
 }
 
 /** Wrap a schema in the canonical collection envelope: `{ data: T[], meta }`. */
 export function PaginatedEnvelope<T extends TSchema>(item: T) {
   return Type.Object({
+    success: Type.Literal(true),
     data: Type.Array(item),
     meta: OffsetPageMeta,
   });
@@ -148,6 +161,7 @@ export function PaginatedEnvelope<T extends TSchema>(item: T) {
 /** Wrap a schema in the canonical cursor collection envelope: `{ data: T[], meta }`. */
 export function CursorEnvelope<T extends TSchema>(item: T) {
   return Type.Object({
+    success: Type.Literal(true),
     data: Type.Array(item),
     meta: CursorPageMeta,
   });
@@ -159,7 +173,9 @@ export function CursorEnvelope<T extends TSchema>(item: T) {
  * use {@link DataEnvelope}/{@link PaginatedEnvelope}. Kept while existing
  * modules migrate to the canonical `{ data, meta }` shape.
  */
-export function SuccessEnvelope<T extends ReturnType<typeof Type.Object>>(data: T) {
+export function SuccessEnvelope<T extends ReturnType<typeof Type.Object>>(
+  data: T,
+) {
   return Type.Object({
     success: Type.Literal(true),
     data,
@@ -168,9 +184,9 @@ export function SuccessEnvelope<T extends ReturnType<typeof Type.Object>>(data: 
 
 // ── Shared enums ─────────────────────────────────────────────────────────────
 export const UserRole = Type.Union([
-  Type.Literal('admin'),
-  Type.Literal('support'),
-  Type.Literal('viewer'),
-  Type.Literal('user'),
+  Type.Literal("admin"),
+  Type.Literal("support"),
+  Type.Literal("viewer"),
+  Type.Literal("user"),
 ]);
 export type UserRole = Static<typeof UserRole>;

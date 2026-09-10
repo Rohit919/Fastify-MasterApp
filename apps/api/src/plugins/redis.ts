@@ -1,8 +1,8 @@
-import fp from 'fastify-plugin';
-import { Redis } from 'ioredis';
-import type { FastifyPluginAsync } from 'fastify';
+import fp from "fastify-plugin";
+import { Redis } from "ioredis";
+import type { FastifyPluginAsync } from "fastify";
 
-declare module 'fastify' {
+declare module "fastify" {
   interface FastifyInstance {
     redis: Redis;
   }
@@ -19,33 +19,37 @@ declare module 'fastify' {
 const redisPlugin: FastifyPluginAsync = async (fastify) => {
   const client = new Redis(fastify.config.REDIS_URL, {
     // Don't block startup forever if Redis is down; keep retrying in background.
-    maxRetriesPerRequest: null,
+    // API producers should fail quickly; only BullMQ workers use null retries.
+    maxRetriesPerRequest: 1,
     enableReadyCheck: true,
     lazyConnect: false,
     retryStrategy: (times) => Math.min(times * 200, 5_000),
   });
 
   let loggedError = false;
-  client.on('error', (err) => {
+  client.on("error", (err) => {
     // Throttle: log the first error, then stay quiet until reconnect to avoid flooding.
     if (!loggedError) {
-      fastify.log.warn({ err }, 'Redis connection error (operating in degraded mode)');
+      fastify.log.warn(
+        { err },
+        "Redis connection error (operating in degraded mode)",
+      );
       loggedError = true;
     }
   });
-  client.on('ready', () => {
+  client.on("ready", () => {
     loggedError = false;
-    fastify.log.info('Redis connected');
+    fastify.log.info("Redis connected");
   });
 
-  fastify.decorate('redis', client);
+  fastify.decorate("redis", client);
 
-  fastify.addHook('onClose', async () => {
+  fastify.addHook("onClose", async () => {
     await client.quit().catch(() => client.disconnect());
   });
 };
 
 export default fp(redisPlugin, {
-  name: 'redis',
-  dependencies: ['env'],
+  name: "redis",
+  dependencies: ["env"],
 });

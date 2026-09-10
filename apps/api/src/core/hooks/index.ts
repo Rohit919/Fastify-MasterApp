@@ -6,10 +6,10 @@
  * for discoverability (on-request, pre-handler, error-handler).
  */
 
-import type { FastifyInstance } from 'fastify';
-import { registerOnRequestHook } from './on-request.js';
-import { registerPreHandlerHook } from './pre-handler.js';
-import { registerErrorHandler } from './error-handler.js';
+import type { FastifyInstance } from "fastify";
+import { registerOnRequestHook } from "./on-request.js";
+import { registerPreHandlerHook } from "./pre-handler.js";
+import { registerErrorHandler } from "./error-handler.js";
 
 export function registerGlobalHooks(app: FastifyInstance): void {
   registerOnRequestHook(app);
@@ -21,6 +21,6 @@ export function registerErrorHandlers(app: FastifyInstance): void {
 }
 
 // Also export the individual registrars for direct use if needed.
-export { registerOnRequestHook } from './on-request.js';
-export { registerPreHandlerHook } from './pre-handler.js';
-export { registerErrorHandler } from './error-handler.js';
+export { registerOnRequestHook } from "./on-request.js";
+export { registerPreHandlerHook } from "./pre-handler.js";
+export { registerErrorHandler } from "./error-handler.js";

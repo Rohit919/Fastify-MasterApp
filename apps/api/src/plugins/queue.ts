@@ -1,9 +1,9 @@
-import fp from 'fastify-plugin';
-import { Queue } from 'bullmq';
-import type { FastifyPluginAsync } from 'fastify';
-import { QUEUE_NAMES, DEFAULT_JOB_OPTIONS } from '../queue/index.js';
+import fp from "fastify-plugin";
+import { Queue } from "bullmq";
+import type { FastifyPluginAsync } from "fastify";
+import { QUEUE_NAMES, DEFAULT_JOB_OPTIONS } from "../queue/index.js";
 
-declare module 'fastify' {
+declare module "fastify" {
   interface FastifyInstance {
     // Optional: the queue plugin is registered in the full app but not in the
     // test harness, so consumers must guard with `fastify.queues?.`.
@@ -19,6 +19,10 @@ declare module 'fastify' {
  * fastify.queues. Workers live in src/workers and run as separate processes.
  */
 const queuePlugin: FastifyPluginAsync = async (fastify) => {
+  if (!fastify.config.QUEUES_ENABLED) {
+    fastify.log.info("Background queues disabled");
+    return;
+  }
   const connection = fastify.redis;
 
   const notifications = new Queue(QUEUE_NAMES.NOTIFICATIONS, {
@@ -26,14 +30,14 @@ const queuePlugin: FastifyPluginAsync = async (fastify) => {
     defaultJobOptions: DEFAULT_JOB_OPTIONS,
   });
 
-  fastify.decorate('queues', { notifications });
+  fastify.decorate("queues", { notifications });
 
-  fastify.addHook('onClose', async () => {
+  fastify.addHook("onClose", async () => {
     await notifications.close();
   });
 };
 
 export default fp(queuePlugin, {
-  name: 'queue',
-  dependencies: ['env', 'redis'],
+  name: "queue",
+  dependencies: ["env", "redis"],
 });

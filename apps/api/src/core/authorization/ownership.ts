@@ -1,38 +1,39 @@
-import type { FastifyRequest, FastifyReply } from 'fastify';
+import type { FastifyRequest } from "fastify";
+import type { PermissionKey } from "@app/api-contracts";
+import {
+  ForbiddenError,
+  NotFoundError,
+  UnauthorizedError,
+} from "@core/errors/index.js";
+
+export interface OwnershipOptions {
+  /** Permission whose holders may operate on resources owned by another user. */
+  bypassPermission?: PermissionKey;
+}
 
 /**
- * preHandler factory — resource ownership check.
- *
- * `getOwnerId` resolves the userId that owns the target resource (usually a DB
- * lookup by :id). Admins bypass the check. A non-admin whose id doesn't match
- * the owner gets 403. Missing resource → 404.
- *
- *   preHandler: [
- *     fastify.authenticate,
- *     requirePermission('todo', 'update'),
- *     requireOwnership(async (req) =>
- *       (await prisma.todo.findUnique({ where: { id: req.params.id } }))?.userId),
- *   ]
+ * Enforce resource ownership using the database-backed authorization context.
+ * All failures flow through the canonical global error handler.
  */
 export function requireOwnership(
-  getOwnerId: (request: FastifyRequest) => Promise<string | undefined | null>
+  getOwnerId: (request: FastifyRequest) => Promise<string | undefined | null>,
+  options: OwnershipOptions = {},
 ) {
-  return async function (request: FastifyRequest, reply: FastifyReply): Promise<void> {
-    // Admins can operate on any resource.
-    if (request.user?.role === 'admin') return;
+  return async function (request: FastifyRequest): Promise<void> {
+    if (!request.user?.id) throw new UnauthorizedError();
+
+    if (options.bypassPermission) {
+      const authz =
+        await request.server.authorization.getContextForRequest(request);
+      if (authz.permissions.includes(options.bypassPermission)) return;
+    }
 
     const ownerId = await getOwnerId(request);
     if (ownerId === undefined || ownerId === null) {
-      return reply.status(404).send({
-        success: false,
-        error: { message: 'Resource not found', statusCode: 404 },
-      });
+      throw new NotFoundError("Resource not found");
     }
-    if (ownerId !== request.user?.id) {
-      return reply.status(403).send({
-        success: false,
-        error: { message: 'Forbidden', statusCode: 403 },
-      });
+    if (ownerId !== request.user.id) {
+      throw new ForbiddenError("You do not have access to this resource.");
     }
   };
 }

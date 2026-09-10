@@ -22,4 +22,4 @@ export {
   ChangePasswordBody as ChangePasswordBodySchema,
   MessageResponse as MessageResponseSchema,
   ResetTokenResponse as ResetTokenResponseSchema,
-} from '@app/api-contracts';
+} from "@app/api-contracts";

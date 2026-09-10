@@ -1,4 +1,4 @@
-import type { PermissionKey } from '@app/api-contracts';
+import type { PermissionKey } from "@app/api-contracts";
 
 /**
  * Runtime authorization context for a request.

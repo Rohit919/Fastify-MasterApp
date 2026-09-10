@@ -1,5 +1,15 @@
-import type { FastifyError, FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { AppError, ErrorCode, RateLimitError, formatErrorResponse } from '../errors/index.js';
+import type {
+  FastifyError,
+  FastifyInstance,
+  FastifyReply,
+  FastifyRequest,
+} from "fastify";
+import {
+  AppError,
+  ErrorCode,
+  RateLimitError,
+  formatErrorResponse,
+} from "../errors/index.js";
 
 /**
  * Registers the global error handler and the not-found handler.
@@ -12,7 +22,10 @@ import { AppError, ErrorCode, RateLimitError, formatErrorResponse } from '../err
  */
 
 /** Map a raw/unknown error to a stable code given its resolved status code. */
-function resolveCode(error: FastifyError | AppError, statusCode: number): string {
+function resolveCode(
+  error: FastifyError | AppError,
+  statusCode: number,
+): string {
   if (error instanceof AppError) return error.code;
 
   // Fastify schema validation failures arrive with an `error.validation` array.
@@ -34,7 +47,9 @@ function resolveCode(error: FastifyError | AppError, statusCode: number): string
     case 503:
       return ErrorCode.SERVICE_UNAVAILABLE;
     default:
-      return statusCode >= 500 ? ErrorCode.INTERNAL_ERROR : ErrorCode.VALIDATION_ERROR;
+      return statusCode >= 500
+        ? ErrorCode.INTERNAL_ERROR
+        : ErrorCode.VALIDATION_ERROR;
   }
 }
 
@@ -44,77 +59,94 @@ function resolveCode(error: FastifyError | AppError, statusCode: number): string
  * parsing human-readable strings.
  */
 function extractValidationDetails(
-  error: FastifyError
+  error: FastifyError,
 ): { fields: Record<string, string> } | undefined {
   if (!error.validation) return undefined;
   const fields: Record<string, string> = {};
   for (const issue of error.validation) {
     // instancePath like "/email" → "email"; missing-property errors carry the
     // field name in params.missingProperty.
-    const rawPath = (issue.instancePath ?? '').replace(/^\//, '').replace(/\//g, '.');
+    const rawPath = (issue.instancePath ?? "")
+      .replace(/^\//, "")
+      .replace(/\//g, ".");
     const key =
       rawPath ||
-      (issue.params && 'missingProperty' in issue.params
+      (issue.params && "missingProperty" in issue.params
         ? String((issue.params as { missingProperty: string }).missingProperty)
-        : 'request');
-    fields[key] = issue.message ?? 'Invalid value';
+        : "request");
+    fields[key] = issue.message ?? "Invalid value";
   }
   return Object.keys(fields).length ? { fields } : undefined;
 }
 
 export function registerErrorHandler(app: FastifyInstance): void {
-  app.setErrorHandler((error: FastifyError, request: FastifyRequest, reply: FastifyReply) => {
-    const isOperational = error instanceof AppError && error.isOperational;
+  app.setErrorHandler(
+    (error: FastifyError, request: FastifyRequest, reply: FastifyReply) => {
+      const isOperational = error instanceof AppError && error.isOperational;
 
-    if (!isOperational) {
-      request.log.error({ err: error, requestId: request.id }, 'Unexpected programming error');
-    } else {
-      request.log.warn({ err: error, requestId: request.id }, 'Operational error');
-    }
+      if (!isOperational) {
+        request.log.error(
+          { err: error, requestId: request.id },
+          "Unexpected programming error",
+        );
+      } else {
+        request.log.warn(
+          { err: error, requestId: request.id },
+          "Operational error",
+        );
+      }
 
-    const statusCode = error.statusCode ?? 500;
-    const code = resolveCode(error, statusCode);
+      const statusCode = error.statusCode ?? 500;
+      const code = resolveCode(error, statusCode);
 
-    // Never leak internal 5xx details in production.
-    const message =
-      statusCode >= 500 && process.env.NODE_ENV === 'production'
-        ? 'Internal Server Error'
-        : (error.message ?? 'Internal Server Error');
+      // Never leak internal 5xx details in production.
+      const message =
+        statusCode >= 500 && process.env.NODE_ENV === "production"
+          ? "Internal Server Error"
+          : (error.message ?? "Internal Server Error");
 
-    // Prefer explicit AppError details; otherwise surface validation field details.
-    const details =
-      error instanceof AppError && statusCode < 500 && error.details !== undefined
-        ? error.details
-        : extractValidationDetails(error);
+      // Prefer explicit AppError details; otherwise surface validation field details.
+      const details =
+        error instanceof AppError &&
+        statusCode < 500 &&
+        error.details !== undefined
+          ? error.details
+          : extractValidationDetails(error);
 
-    // Standard Retry-After for rate-limit errors that carry a hint — set as a
-    // header AND echoed in the envelope body.
-    const retryAfter =
-      error instanceof RateLimitError && typeof error.retryAfter === 'number'
-        ? error.retryAfter
-        : undefined;
-    if (retryAfter !== undefined) {
-      reply.header('retry-after', String(retryAfter));
-    }
+      // Standard Retry-After for rate-limit errors that carry a hint — set as a
+      // header AND echoed in the envelope body.
+      const retryAfter =
+        error instanceof RateLimitError && typeof error.retryAfter === "number"
+          ? error.retryAfter
+          : undefined;
+      if (retryAfter !== undefined) {
+        reply.header("retry-after", String(retryAfter));
+      }
 
-    // Single serializer assembles the canonical envelope (matches
-    // @app/api-contracts ErrorEnvelope) so every error path is byte-consistent.
-    return reply
-      .status(statusCode)
-      .send(
-        formatErrorResponse({ code, message, statusCode, requestId: request.id, details, retryAfter })
+      // Single serializer assembles the canonical envelope (matches
+      // @app/api-contracts ErrorEnvelope) so every error path is byte-consistent.
+      return reply.status(statusCode).send(
+        formatErrorResponse({
+          code,
+          message,
+          statusCode,
+          requestId: request.id,
+          details,
+          retryAfter,
+        }),
       );
-  });
+    },
+  );
 
   app.setNotFoundHandler((request, reply) => {
     return reply.status(404).send(
       formatErrorResponse({
         code: ErrorCode.NOT_FOUND,
-        message: 'Route not found',
+        message: "Route not found",
         statusCode: 404,
         requestId: request.id,
         path: request.url,
-      })
+      }),
     );
   });
 }

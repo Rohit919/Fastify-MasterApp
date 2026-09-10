@@ -1,10 +1,14 @@
-import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
-import type { Prisma } from '@prisma/client';
-import { USER_ROUTES, USER_CONTRACTS, toFastifySchema } from '@app/api-contracts';
-import type { PermissionKey, ListUsersQuery } from '@app/api-contracts';
-import { requirePermission } from '@core/authorization/index.js';
-import { NotFoundError } from '@core/errors/index.js';
-import { normalizePagination, buildPageMeta } from '@core/utils/index.js';
+import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
+import type { Prisma } from "@prisma/client";
+import {
+  USER_ROUTES,
+  USER_CONTRACTS,
+  toFastifySchema,
+} from "@app/api-contracts";
+import type { PermissionKey, ListUsersQuery } from "@app/api-contracts";
+import { requirePermission } from "@core/authorization/index.js";
+import { NotFoundError } from "@core/errors/index.js";
+import { normalizePagination, buildPageMeta } from "@core/utils/index.js";
 
 /**
  * Users routes — consume the shared Level 2 contracts (API_CONTRACTS §80).
@@ -37,7 +41,7 @@ const userRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
       // FastifyRouteSchema), so re-apply the contract's inferred query type.
       const query = request.query as ListUsersQuery;
       const { page, pageSize, skip, take } = normalizePagination(query);
-      const { search, role, sortBy = 'createdAt', sortOrder = 'desc' } = query;
+      const { search, role, sortBy = "createdAt", sortOrder = "desc" } = query;
 
       // Whitelisted, validated filters only — never raw client SQL/columns.
       const where: Prisma.UserWhereInput = {
@@ -45,8 +49,8 @@ const userRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
         ...(search
           ? {
               OR: [
-                { name: { contains: search, mode: 'insensitive' } },
-                { email: { contains: search, mode: 'insensitive' } },
+                { name: { contains: search, mode: "insensitive" } },
+                { email: { contains: search, mode: "insensitive" } },
               ],
             }
           : {}),
@@ -58,16 +62,23 @@ const userRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
           orderBy: { [sortBy]: sortOrder },
           skip,
           take,
-          select: { id: true, email: true, name: true, role: true, createdAt: true },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            role: true,
+            createdAt: true,
+          },
         }),
         fastify.prisma.user.count({ where }),
       ]);
 
       return reply.send({
+        success: true,
         data: rows.map((u) => ({ ...u, createdAt: u.createdAt.toISOString() })),
         meta: buildPageMeta(page, pageSize, total),
       });
-    }
+    },
   );
 
   // ── GET /me ─────────────────────────────────────────────────────────────────
@@ -97,7 +108,7 @@ const userRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
         // Domain error → centralized handler emits the canonical envelope with
         // the stable USER_NOT_FOUND code (not reply.notFound(), which produces
         // sensible's non-standard shape).
-        throw new NotFoundError('User not found', 'USER_NOT_FOUND');
+        throw new NotFoundError("User not found", "USER_NOT_FOUND");
       }
 
       const ctx = await fastify.authorization.getContext(user.id);
@@ -115,7 +126,7 @@ const userRoutes: FastifyPluginAsyncTypebox = async (fastify) => {
           permissions: ctx.permissions,
         },
       });
-    }
+    },
   );
 };
 

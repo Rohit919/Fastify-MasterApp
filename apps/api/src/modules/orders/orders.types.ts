@@ -1,21 +1,21 @@
-/**
- * PLACEHOLDER — orders domain types.
- *
- * This module is a scaffold demonstrating the full vertical-slice shape:
- *   routes → orchestrator → operations + repositories → database.
- * Fill in when the orders feature is actually built (and add a Prisma model).
- */
+import type { OperationContext } from "@core/orchestration/index.js";
+import type { Prisma, PrismaClient } from "@prisma/client";
+import type { Queue } from "bullmq";
 
-export interface Order {
-  id: string;
-  userId: string;
-  status: 'pending' | 'paid' | 'shipped' | 'cancelled';
-  total: number;
-  createdAt: Date;
-  updatedAt: Date;
-}
+export type OrderWithItems = Prisma.OrderGetPayload<{
+  include: { items: true };
+}>;
 
 export interface CreateOrderInput {
   userId: string;
   items: Array<{ productId: string; quantity: number }>;
+  idempotencyKey?: string;
+}
+
+export interface CreateOrderContext extends OperationContext {
+  input: CreateOrderInput;
+  prisma: PrismaClient;
+  notificationsQueue?: Queue;
+  order?: OrderWithItems;
+  outboxEventId?: string;
 }

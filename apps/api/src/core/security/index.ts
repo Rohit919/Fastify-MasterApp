@@ -12,14 +12,14 @@ export {
   isPrivateIp,
   SsrfError,
   type SsrfCheckOptions,
-} from './ssrf.js';
+} from "./ssrf.js";
 
 export {
   resolveWithinBase,
   isWithinBase,
   safeFilename,
   PathTraversalError,
-} from './paths.js';
+} from "./paths.js";
 
 export {
   validateFileContent,
@@ -28,4 +28,4 @@ export {
   type FileValidationOptions,
   type ValidatedFile,
   type DetectedType,
-} from './file-validation.js';
+} from "./file-validation.js";

@@ -1,4 +1,4 @@
-import { ErrorCode } from './error-codes.js';
+import { ErrorCode } from "./error-codes.js";
 
 /**
  * Base application error. All domain errors extend this.
@@ -20,7 +20,7 @@ export class AppError extends Error {
     statusCode: number = 500,
     isOperational: boolean = true,
     details?: unknown,
-    code: string = ErrorCode.INTERNAL_ERROR
+    code: string = ErrorCode.INTERNAL_ERROR,
   ) {
     super(message);
     this.statusCode = statusCode;

@@ -7,11 +7,13 @@ on:
     branches: [main, develop]
 
 env:
-  NODE_VERSION: '22'
-  # Opt into Node.js 24 for action runners now — GitHub will force this from
-  # June 2026. actions/checkout@v4 and actions/setup-node@v4 bundle Node.js 20
-  # internally; this env var makes the runner execute them on Node.js 24 instead.
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+  NODE_VERSION: "24"
+  # Generation and schema validation need a syntactically valid datasource URL;
+  # jobs that use Postgres override these with their service connection.
+  DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+  DATABASE_DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
+  # Keep JavaScript actions on the current Node runtime.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   # ── Type & format checks ──────────────────────────────────────────────────
@@ -19,24 +21,26 @@ jobs:
     name: Typecheck & Format
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.0.0
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: "npm"
       - run: npm ci
       # Contracts must be built (or aliased) before the API typechecks against them.
       - run: npm run build:contracts
+      - name: Validate Prisma schema
+        run: npx prisma validate
       - name: Generate Prisma client
         run: npx prisma generate
       - name: Typecheck all workspaces
         run: npm run typecheck
+      - name: Lint all workspaces
+        run: npm run lint
       - name: API endpoint drift check
         run: npm run check:api-drift
-      # NOTE: eslint is not yet configured in this monorepo (removed during the
-      # workspace migration). Formatting check runs when prettier is available.
-      - name: Format check (non-blocking)
-        run: npx prettier --check "apps/**/*.{ts,tsx}" "packages/**/*.ts" || true
+      - name: Format check
+        run: npm run format:check
 
   # ── Prometheus rules & config validation ──────────────────────────────────
   # Catches PromQL/label mistakes (e.g. alerts referencing a metric name the app
@@ -45,9 +49,9 @@ jobs:
     name: Validate Prometheus Rules
     runs-on: ubuntu-latest
     env:
-      PROMTOOL_VERSION: '3.1.0'
+      PROMTOOL_VERSION: "3.1.0"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
       - name: Install promtool
         run: |
           curl -fsSL -o prometheus.tar.gz \
@@ -86,24 +90,28 @@ jobs:
       # In CI there is no PgBouncer, so directUrl == DATABASE_URL.
       DATABASE_DIRECT_URL: postgresql://test:test@localhost:5432/fastify_test
       JWT_SECRET: ci-test-secret-that-is-at-least-32-characters-long
-      METRICS_ENABLED: 'false'
-      SWAGGER_ENABLED: 'false'
-      OTEL_ENABLED: 'false'
+      METRICS_ENABLED: "false"
+      SWAGGER_ENABLED: "false"
+      OTEL_ENABLED: "false"
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.0.0
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: "npm"
       - run: npm ci
       - run: npm run build:contracts
       - name: Apply migrations
         run: npx prisma migrate deploy
-      - name: Run tests with coverage
+      - name: Verify migration state
+        run: npx prisma migrate status
+      - name: Run API tests with coverage
         run: npm run test:coverage --workspace @app/api
+      - name: Run admin tests
+        run: npm run test:admin
       - name: Upload coverage
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7.0.0
         with:
           files: ./apps/api/coverage/lcov.info
           fail_ci_if_error: false
@@ -114,11 +122,11 @@ jobs:
     runs-on: ubuntu-latest
     needs: [quality, test]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.0.0
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: "npm"
       - run: npm ci
       - name: Generate Prisma client
         run: npx prisma generate
@@ -129,23 +137,53 @@ jobs:
       - name: Build API Docker image
         run: docker build -t fastify-api:${{ github.sha }} .
 
+  # ── Browser smoke tests ────────────────────────────────────────────────────
+  e2e:
+    name: Admin browser smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+
+  # Keep the declared minimum Node release healthy while Node 24 is primary.
+  node22-compatibility:
+    name: Node 22 compatibility
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - run: npm run build:contracts
+      - run: npx prisma generate
+      - run: npm run typecheck
+      - run: npm test
+
   # ── Security scanning ──────────────────────────────────────────────────────
   security:
     name: Security Audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7.0.0
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: "npm"
       - run: npm ci
       # Fail only on high/critical advisories.
       - name: npm audit
-        run: npm audit --audit-level=high || true
+        run: npm audit --audit-level=high
       - name: Scan for committed secrets
-        uses: trufflesecurity/trufflehog@main
+        uses: trufflesecurity/trufflehog@v3.97.4
         with:
           extra_args: --only-verified
